@@ -13,7 +13,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: true,
     },
-    title: 'Echo CRM',
+    title: 'Wavelength',
     autoHideMenuBar: true,
     show: false
   });
