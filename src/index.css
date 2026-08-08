@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    @apply tracking-tight;
+  }
+}
+
+/* Custom premium styling utilities */
+.glass-panel {
+  @apply bg-slate-900/60 border border-slate-800/80 backdrop-blur-md;
+}
+
+.glass-card {
+  @apply bg-slate-900/40 border border-slate-800/40 backdrop-blur-sm transition-all duration-300;
+}
+
+.glass-input {
+  @apply bg-slate-950/80 border border-slate-800/80 focus:border-brand-500/80 focus:ring-2 focus:ring-brand-500/10 focus:outline-none rounded-lg text-slate-100 transition-all duration-200;
+}
+
+/* Custom scrollbar styling for a clean sidebar and cards view */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800/60 rounded-full hover:bg-slate-700/80 transition-colors duration-150;
+}
