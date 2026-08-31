@@ -1,0 +1,33 @@
+{
+    "status": "SUCCESS",
+    "audio_path": "test\\sample-audio\\sample.wav",
+    "transcript": "Hi, this is Sarah Jenkins calling from APEX Global. I wanted to follow up on our discussion regarding the wavelength enterprise CRM platform. We are looking to deploy this for our sales team of 25 representatives. Overall, we are very excited about the real-time call transcription and automated sentiment tracking features. However, I do have a concern regarding our data migration timeline from Salesforce and whether your team can assist with data import before the end of the month. Could you send over a detailed pricing proposal and schedule a technical demonstration with our IT director for next Tuesday at 10am? If the pricing looks good and migration support is included, we are ready to move forward to contract negotiation.",
+    "analysis": {
+        "summary": "APEX Global interested in deploying Wavelength CRM platform for sales team of 25 representatives, with concerns about data migration timeline.",
+        "sentiment": "positive",
+        "deal_stage": "prospecting",
+        "customer_intent": "Interested in real-time call transcription and automated sentiment tracking features, but concerned about data migration timeline.",
+        "products_discussed": [
+            "wavelength enterprise CRM platform"
+        ],
+        "action_items": [
+            {
+                "description": "Send detailed pricing proposal and schedule technical demonstration with IT director for next Tuesday at 10am",
+                "due_date": null
+            }
+        ],
+        "follow_up": {
+            "required": false,
+            "date": null,
+            "reason": ""
+        }
+    },
+    "metadata": {
+        "processing_time_seconds": 13.693,
+        "audio_duration_seconds": 48.3,
+        "transcription_model": "base",
+        "llm_provider": "ollama",
+        "llm_model": "llama3.2:3b",
+        "errors": []
+    }
+}

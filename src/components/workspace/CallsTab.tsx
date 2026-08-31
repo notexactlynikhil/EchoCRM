@@ -1,6 +1,7 @@
 import React from 'react'
 import { Call } from '../../types'
 import { PhoneCall, Calendar, Clock, Info } from 'lucide-react'
+import { AIPipelineTester } from './AIPipelineTester'
 
 interface CallsTabProps {
   calls: Call[];
@@ -47,29 +48,30 @@ export const CallsTab: React.FC<CallsTabProps> = ({ calls, loading }) => {
     )
   }
 
-  if (calls.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 border border-dashed border-slate-800 rounded-xl bg-slate-900/10 select-none">
-        <div className="p-3.5 bg-slate-800/40 text-slate-500 border border-slate-750 rounded-xl mb-3">
-          <PhoneCall className="w-6 h-6" />
-        </div>
-        <h4 className="text-sm font-bold text-slate-350">No calls recorded</h4>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs text-center leading-relaxed">
-          There are no audio captures or transcript records linked to this customer account.
-        </p>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-5 animate-fadeIn">
-      {/* Scope banner explaining audio exclusions */}
-      <div className="flex items-start gap-3 p-3.5 bg-brand-500/5 border border-brand-500/10 rounded-lg text-slate-400 text-xs leading-normal">
-        <Info className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
-        <span>
-          <strong>Scope Notice:</strong> Audio streaming, playbacks, and visual transcript panels are scheduled for Phase 2B (future phase) and are intentionally mock-restricted inside this client build.
-        </span>
-      </div>
+    <div className="space-y-6 animate-fadeIn">
+      {/* Local AI Pipeline Integration Tester */}
+      <AIPipelineTester />
+
+      {calls.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 border border-dashed border-slate-800 rounded-xl bg-slate-900/10 select-none">
+          <div className="p-3.5 bg-slate-800/40 text-slate-500 border border-slate-750 rounded-xl mb-3">
+            <PhoneCall className="w-6 h-6" />
+          </div>
+          <h4 className="text-sm font-bold text-slate-350">No CRM calls recorded yet</h4>
+          <p className="text-xs text-slate-500 mt-1 max-w-xs text-center leading-relaxed">
+            There are no audio captures linked to this account. Use the AI Tester above to process a sample call locally.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3.5 bg-brand-500/5 border border-brand-500/10 rounded-lg text-slate-400 text-xs leading-normal">
+            <Info className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>Call Records:</strong> Below are customer call records from Supabase.
+            </span>
+          </div>
+
 
       {/* List */}
       <div className="bg-slate-900/20 border border-slate-800/60 rounded-xl divide-y divide-slate-800/60 overflow-hidden">
@@ -107,10 +109,13 @@ export const CallsTab: React.FC<CallsTabProps> = ({ calls, loading }) => {
                 </span>
               </div>
 
-            </div>
-          )
-        })}
+              </div>
+            )
+          })}
+        </div>
       </div>
+      )}
     </div>
   )
 }
+
