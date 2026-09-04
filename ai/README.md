@@ -52,6 +52,8 @@ Wavelength/
 
 ## 3. Obtaining & Configuring Local Models
 
+> **Quick Start**: Run `python setup_llama_model.py` once after cloning to set up the local LLM model automatically (reusing your existing Ollama download if present, or downloading from Hugging Face).
+
 ### Speech-to-Text (Whisper)
 - `faster-whisper` automatically downloads the designated model (`base`, `tiny`, `small`, or `medium`) on first run and caches it locally.
 - Default configuration uses `base` on `cpu` with `int8` quantization (configurable in `ai/config/settings.py` or environment variables).
@@ -174,3 +176,39 @@ When ready to connect this AI pipeline to the Electron desktop application and S
    - Create a `call_summaries` row with `summary_text`, `sentiment`, `deal_stage`, `product`.
    - Automatically insert extracted `tasks` into the `tasks` table with `customer_id` and `call_id`.
    - Automatically update or create a `deals` record for the customer if a new deal stage/value was identified.
+
+---
+
+## 9. In-Process Llama.cpp Provider (Standalone Desktop Builds)
+
+For a self-contained desktop demo build that runs without an external background service (like Ollama), Wavelength supports an in-process `llama.cpp` LLM provider.
+
+### Installation
+Install `llama-cpp-python` using the prebuilt CPU wheel index (no compiler required):
+```bash
+pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+```
+
+### Model File Location & Reuse
+- **Location**: `llama-runtime/models/llama-3.2-3b-instruct-q4_k_m.gguf`
+- **Ollama Model Reuse**: The system locates Ollama's downloaded model layer manifest at `%USERPROFILE%\.ollama\models\manifests\registry.ollama.ai\library\llama3.2\3b` (or `~/.ollama/...` on macOS/Linux), finds the model blob `sha256-<digest>`, verifies the GGUF header (`b'GGUF'`), and copies it to `llama-runtime/models/llama-3.2-3b-instruct-q4_k_m.gguf`.
+- **Fallback**: If Ollama's blob is not found, download `Llama-3.2-3B-Instruct-Q4_K_M.gguf` directly from Hugging Face (`bartowski/Llama-3.2-3B-Instruct-GGUF`) into `llama-runtime/models/`.
+
+### Switching LLM Providers
+Set the `LLM_PROVIDER` environment variable:
+- `LLM_PROVIDER=ollama` — Uses external Ollama service (`http://localhost:11434`, model `llama3.2:3b`)
+- `LLM_PROVIDER=llama_cpp` — Uses in-process `llama.cpp` provider (`llama-runtime/models/llama-3.2-3b-instruct-q4_k_m.gguf`)
+- `LLM_PROVIDER=mock` — Uses mock response provider for testing without local inference
+
+Example:
+```bash
+# Windows PowerShell
+$env:LLM_PROVIDER="llama_cpp"; python ai/server.py
+
+# Bash / Linux / macOS
+LLM_PROVIDER=llama_cpp python ai/server.py
+```
+
+### License & Attribution
+*Built with Llama*: This application utilizes Llama 3.2 models developed by Meta under the Meta Llama 3.2 Community License.
+

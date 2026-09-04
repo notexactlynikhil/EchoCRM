@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import urllib.error
+import os
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from ai.config.settings import settings
@@ -111,6 +112,66 @@ class OllamaLLMProvider(LLMProvider):
         return self._resolve_model_name()
 
 
+class LocalLlamaProvider(LLMProvider):
+    """In-process LLM provider using llama.cpp (llama-cpp-python)."""
+
+    _model_instance = None
+    _model_path = None
+
+    @classmethod
+    def get_model(cls):
+        if cls._model_instance is None or cls._model_path != settings.LLAMA_GGUF_PATH:
+            if not os.path.exists(settings.LLAMA_GGUF_PATH):
+                raise RuntimeError(
+                    f"Llama GGUF model file not found at path '{settings.LLAMA_GGUF_PATH}'"
+                )
+            try:
+                from llama_cpp import Llama
+                # n_threads tuned via benchmark — 4 threads (physical cores) outperformed higher logical thread counts (8, 12) by avoiding hyperthreading overhead
+                cls._model_instance = Llama(
+                    model_path=settings.LLAMA_GGUF_PATH,
+                    n_ctx=settings.LLAMA_CTX_SIZE,
+                    n_threads=4,
+                    verbose=False
+                )
+                cls._model_path = settings.LLAMA_GGUF_PATH
+            except Exception as e:
+                raise RuntimeError(f"Failed to initialize llama.cpp model: {str(e)}")
+        return cls._model_instance
+
+    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        model = self.get_model()
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            response = model.create_chat_completion(
+                messages=messages,
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            choices = response.get("choices", [])
+            if not choices:
+                raise RuntimeError("Empty choices received from llama.cpp model")
+            content = choices[0].get("message", {}).get("content", "")
+            if not content:
+                raise RuntimeError("Empty response content received from llama.cpp model")
+            return content
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise e
+            raise RuntimeError(f"llama.cpp generation failed: {str(e)}")
+
+    def get_provider_name(self) -> str:
+        return "llama.cpp"
+
+    def get_model_name(self) -> str:
+        return os.path.basename(settings.LLAMA_GGUF_PATH)
+
+
 class MockLLMProvider(LLMProvider):
     """Mock LLM Provider for testing offline or fallbacks."""
 
@@ -150,6 +211,9 @@ def get_llm_provider(provider_type: Optional[str] = None) -> LLMProvider:
         return OllamaLLMProvider()
     elif provider.lower() == "mock":
         return MockLLMProvider()
+    elif provider.lower() == "llama_cpp":
+        return LocalLlamaProvider()
     else:
         # Default to Ollama provider
         return OllamaLLMProvider()
+

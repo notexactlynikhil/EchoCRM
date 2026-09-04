@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -10,12 +11,30 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from ai.config.settings import settings
 from ai.pipeline.orchestrator import process_call, CallPipeline
-from ai.analysis.llm_provider import get_llm_provider
+from ai.analysis.llm_provider import get_llm_provider, LocalLlamaProvider
 from ai.analysis.smart_query import SmartQueryOrchestrator
 
 app = FastAPI(title="Wavelength AI Service", version="1.0.0")
 
 smart_orchestrator = SmartQueryOrchestrator()
+model_warmed_up: bool = False
+
+@app.on_event("startup")
+def startup_event():
+    global model_warmed_up
+    provider = get_llm_provider()
+    if isinstance(provider, LocalLlamaProvider):
+        try:
+            start_time = time.time()
+            provider.generate("Warmup prompt")
+            elapsed = time.time() - start_time
+            model_warmed_up = True
+            print(f"[Startup] ✓ Llama model warmed up in {elapsed:.2f}s")
+        except Exception as e:
+            model_warmed_up = False
+            print(f"[Startup] ✗ Llama model warm-up failed: {str(e)}")
+    else:
+        model_warmed_up = False
 
 class ProcessCallRequest(BaseModel):
     audio_path: Optional[str] = None
@@ -35,9 +54,11 @@ def health_check():
         "whisper_model": settings.WHISPER_MODEL_SIZE,
         "llm_provider": provider.get_provider_name(),
         "llm_model": provider.get_model_name(),
+        "model_warmed_up": model_warmed_up,
         "krill_search_enabled": settings.KRILL_ENABLED,
         "krill_api_key_configured": bool(settings.KRILL_API_KEY)
     }
+
 
 @app.post("/process-call")
 def handle_process_call(request: ProcessCallRequest) -> Dict[str, Any]:
