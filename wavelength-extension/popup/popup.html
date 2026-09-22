@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wavelength Meeting Recorder</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v20M17 5v14M7 5v14M22 10v4M2 10v4" />
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Wavelength</h1>
+          <span class="version-tag">Extension v1.3</span>
+        </div>
+      </div>
+      <div id="liveBadge" class="status-pill idle">IDLE</div>
+    </header>
+
+    <!-- Alert Banner -->
+    <div id="alertBanner" class="alert-banner hidden">
+      <span id="alertText"></span>
+      <button id="alertCloseBtn" class="alert-close">&times;</button>
+    </div>
+
+    <!-- IDLE VIEW: Ready to Record -->
+    <section id="idleView" class="view-panel">
+      <!-- Target Platform Detection Card -->
+      <div class="card platform-card">
+        <div class="card-header">
+          <span class="card-label">Meeting Target</span>
+          <span id="detectedPlatformBadge" class="platform-badge unverified">Scanning...</span>
+        </div>
+        <div class="platform-details">
+          <div class="platform-title" id="meetingTitle">Scanning active tab...</div>
+          <div class="platform-url" id="meetingUrl">-</div>
+        </div>
+      </div>
+
+      <!-- Customer Disclosure Injection Status Card -->
+      <div class="card disclosure-card">
+        <div class="card-header">
+          <span class="card-label">Remote Customer Disclosure</span>
+          <span id="injectorBadge" class="disclosure-badge checking">CHECKING WEBRTC</span>
+        </div>
+        <div class="disclosure-text">
+          Automatic disclosure prompt:
+          <em>"This call is being recorded for quality and training purposes."</em>
+          <div id="injectorTip" class="injector-tip">
+            Will inject directly into meeting WebRTC audio track so remote participants hear it.
+          </div>
+        </div>
+        <div class="disclosure-actions">
+          <button id="copyNoticeBtn" class="secondary-btn" title="Copy text notice to clipboard">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy notice text
+          </button>
+          <span id="copyToast" class="toast hidden">Copied!</span>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="action-section">
+        <button id="startRecordBtn" class="primary-btn start-btn">
+          <div class="btn-rec-dot"></div>
+          Start Recording
+        </button>
+        <button id="micPermissionBtn" class="link-btn hidden">
+          Need microphone permission? Click here
+        </button>
+      </div>
+    </section>
+
+    <!-- RECORDING ACTIVE VIEW -->
+    <section id="recordingView" class="view-panel hidden">
+      <div class="card recording-card">
+        <div class="recording-indicator">
+          <div class="pulse-ring"></div>
+          <div class="solid-dot"></div>
+        </div>
+        <div class="recording-timer" id="recordingTimer">00:00:00</div>
+        <div class="recording-meta">
+          <span id="recPlatformName" class="badge">Google Meet</span>
+          <span id="currentSpeakerBadge" class="badge speaker-badge">SILENCE</span>
+        </div>
+
+        <!-- Real-Time Audio Sources & Voice Activity Detection (VAD) -->
+        <div class="audio-monitor">
+          <!-- Source A: Salesperson Mic -->
+          <div class="monitor-block">
+            <div class="monitor-row">
+              <span class="monitor-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3v6a3 3 0 003 3z"/>
+                </svg>
+                SALESPERSON_MIC (Ch 1)
+              </span>
+              <span id="micVadStatus" class="vad-tag inactive">IDLE</span>
+            </div>
+            <div class="meter-bar-track">
+              <div id="micMeterBar" class="meter-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Source B: Remote Tab Audio -->
+          <div class="monitor-block">
+            <div class="monitor-row">
+              <span class="monitor-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                </svg>
+                REMOTE_AUDIO (Ch 2)
+              </span>
+              <span id="remoteVadStatus" class="vad-tag inactive">IDLE</span>
+            </div>
+            <div class="meter-bar-track">
+              <div id="remoteMeterBar" class="meter-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Distinct Disclosure Delivery Status -->
+          <div class="disclosure-monitor-section">
+            <div class="monitor-row-compact">
+              <span class="compact-label">Local Disclosure:</span>
+              <span id="localDisclosureBadge" class="stream-status active">● Played locally</span>
+            </div>
+            <div class="monitor-row-compact">
+              <span class="compact-label">Remote Disclosure:</span>
+              <span id="remoteDisclosureBadge" class="stream-status active">● Delivered</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-section">
+        <button id="stopRecordBtn" class="primary-btn stop-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+            <rect x="5" y="5" width="14" height="14" rx="2" />
+          </svg>
+          Stop Recording
+        </button>
+      </div>
+    </section>
+
+    <!-- RECORDINGS HISTORY (Local IndexedDB) -->
+    <section class="recordings-history-section">
+      <div class="section-title-row">
+        <h2>Local Meeting Recordings</h2>
+        <span id="recordingsCount" class="count-pill">0</span>
+      </div>
+      <div id="recordingsList" class="recordings-list">
+        <div class="empty-state">No recordings yet.</div>
+      </div>
+    </section>
+
+    <!-- Modal for Preview, Speaker Segmentation & Inspection -->
+    <div id="playerModal" class="modal hidden">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h3 id="modalTitle">Playback & Speaker Attribution</h3>
+          <button id="closeModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <audio id="audioPreview" controls class="audio-control"></audio>
+
+          <!-- Speaker Segmentation Breakdown -->
+          <div id="speakerStatsContainer" class="speaker-stats-box">
+            <div class="stats-header">Speaker Ratio Breakdown</div>
+            <div class="stats-bars">
+              <div class="stat-bar-group">
+                <span class="stat-label">Salesperson:</span>
+                <span id="statSalespersonVal" class="stat-val">0%</span>
+              </div>
+              <div class="stat-bar-group">
+                <span class="stat-label">Remote Audio:</span>
+                <span id="statRemoteVal" class="stat-val">0%</span>
+              </div>
+              <div class="stat-bar-group">
+                <span class="stat-label">Overlap:</span>
+                <span id="statOverlapVal" class="stat-val">0%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Segment Timeline List -->
+          <div class="timeline-section">
+            <div class="timeline-header">Segment Timeline</div>
+            <div id="timelineList" class="timeline-list"></div>
+          </div>
+
+          <!-- Raw Metadata JSON Inspector -->
+          <details class="json-details">
+            <summary>View Complete JSON Metadata</summary>
+            <pre id="modalMeta" class="modal-meta"></pre>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../storage/recording-store.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
