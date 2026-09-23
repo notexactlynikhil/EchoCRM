@@ -4,7 +4,7 @@ import { supabase } from '../supabase/client'
 export type SyncStatus = 'connected' | 'connecting' | 'disconnected';
 
 export interface RealtimeEvent {
-  table: 'customers' | 'tasks' | 'deals' | 'calls';
+  table: 'customers' | 'tasks' | 'deals' | 'calls' | 'meeting_recordings';
   eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   newRecord: any;
   oldRecord: any;

@@ -7,7 +7,8 @@ import {
   createTask, 
   updateTask, 
   deleteTask, 
-  updateDealStage 
+  updateDealStage,
+  getCustomerRecordings
 } from '../services/workspaceService'
 import { useRealtimeSync } from '../contexts/RealtimeSyncContext'
 
@@ -26,6 +27,7 @@ export function useWorkspace(customerId: string) {
   
   // Data lists
   const [calls, setCalls] = useState<Call[]>([])
+  const [recordings, setRecordings] = useState<any[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
   
@@ -40,12 +42,14 @@ export function useWorkspace(customerId: string) {
     setLoading(true)
     setError(null)
     try {
-      const [fetchedCalls, fetchedTasks, fetchedDeals] = await Promise.all([
+      const [fetchedCalls, fetchedTasks, fetchedDeals, fetchedRecordings] = await Promise.all([
         getCustomerCalls(customerId),
         getCustomerTasks(customerId),
-        getCustomerDeals(customerId)
+        getCustomerDeals(customerId),
+        getCustomerRecordings(customerId)
       ]);
       setCalls(fetchedCalls)
+      setRecordings(fetchedRecordings)
       setTasks(fetchedTasks)
       setDeals(fetchedDeals)
     } catch (err: any) {
@@ -129,6 +133,31 @@ export function useWorkspace(customerId: string) {
             const exists = prev.some((d) => d.id === event.newRecord.id);
             if (exists) return prev;
             return [event.newRecord, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          });
+        }
+      }
+
+      // 4. Meeting Recordings Table
+      else if (event.table === 'meeting_recordings') {
+        const record = event.eventType === 'DELETE' ? event.oldRecord : event.newRecord;
+        if (record.customer_id !== customerId) return;
+
+        if (event.eventType === 'DELETE') {
+          setRecordings((prev) => prev.filter((r) => r.id !== event.oldRecord.id));
+        } else if (event.eventType === 'UPDATE') {
+          setRecordings((prev) => {
+            const exists = prev.some((r) => r.id === event.newRecord.id);
+            if (exists) {
+              return prev.map((r) => (r.id === event.newRecord.id ? event.newRecord : r))
+                         .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+            }
+            return prev;
+          });
+        } else if (event.eventType === 'INSERT') {
+          setRecordings((prev) => {
+            const exists = prev.some((r) => r.id === event.newRecord.id);
+            if (exists) return prev;
+            return [event.newRecord, ...prev].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
           });
         }
       }
@@ -231,6 +260,7 @@ export function useWorkspace(customerId: string) {
     activeTab,
     setActiveTab,
     calls,
+    recordings,
     tasks,
     deals,
     loading,

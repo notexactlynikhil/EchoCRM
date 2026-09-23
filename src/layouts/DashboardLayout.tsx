@@ -7,10 +7,11 @@ import {
   CheckSquare, 
   Settings as SettingsIcon, 
   LogOut, 
-  ShieldCheck
+  ShieldCheck,
+  Mic
 } from 'lucide-react'
 
-export type TabType = 'dashboard' | 'customers' | 'tasks' | 'settings';
+export type TabType = 'dashboard' | 'customers' | 'tasks' | 'recordings' | 'settings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -30,6 +31,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    { id: 'recordings', label: 'Recordings', icon: Mic },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ] as const;
 

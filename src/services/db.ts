@@ -115,3 +115,25 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     throw err instanceof Error ? err : new Error('An unexpected error occurred while loading dashboard.');
   }
 }
+
+export async function fetchMeetingRecordings() {
+  const { data, error } = await supabase
+    .from('meeting_recordings')
+    .select('*, customer:customers(name)')
+    .order('started_at', { ascending: false });
+  
+  if (error) throw handleDbError(error, 'Failed to fetch recordings');
+  return data;
+}
+
+export async function assignRecordingToCustomer(recordingId: string, customerId: string | null) {
+  const { data, error } = await supabase
+    .from('meeting_recordings')
+    .update({ customer_id: customerId })
+    .eq('id', recordingId)
+    .select('*, customer:customers(name)')
+    .single();
+
+  if (error) throw handleDbError(error, 'Failed to assign recording');
+  return data;
+}

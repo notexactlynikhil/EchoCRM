@@ -153,6 +153,21 @@
     return true;
   });
 
+  // Auto-start recording logic
+  const platformInfo = detectPlatform();
+  if (platformInfo.isMeeting) {
+    // Wait briefly for page to settle
+    setTimeout(() => {
+      chrome.runtime.sendMessage({
+        type: 'MEETING_JOINED',
+        payload: {
+          platform: platformInfo.platform,
+          meetingUrl: platformInfo.url
+        }
+      }).catch(() => {});
+    }, 2000);
+  }
+
   // Best-effort detection for meeting tab unload
   window.addEventListener('beforeunload', () => {
     try {

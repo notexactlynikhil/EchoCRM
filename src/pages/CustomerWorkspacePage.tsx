@@ -22,6 +22,7 @@ export const CustomerWorkspacePage: React.FC<CustomerWorkspacePageProps> = ({
     activeTab,
     setActiveTab,
     calls,
+    recordings,
     tasks,
     deals,
     loading,
@@ -73,7 +74,7 @@ export const CustomerWorkspacePage: React.FC<CustomerWorkspacePageProps> = ({
       case 'overview':
         return <OverviewTab customer={customer} />
       case 'calls':
-        return <CallsTab calls={calls} loading={loading} customerId={customer.id} />
+        return <CallsTab calls={calls} recordings={recordings} loading={loading} customerId={customer.id} />
       case 'tasks':
         return (
           <TasksTab

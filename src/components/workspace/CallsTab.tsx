@@ -6,11 +6,12 @@ import { AIPipelineTester } from './AIPipelineTester'
 
 interface CallsTabProps {
   calls: Call[];
+  recordings?: any[];
   loading: boolean;
   customerId: string;
 }
 
-export const CallsTab: React.FC<CallsTabProps> = ({ calls, loading, customerId }) => {
+export const CallsTab: React.FC<CallsTabProps> = ({ calls, recordings = [], loading, customerId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
@@ -191,6 +192,34 @@ export const CallsTab: React.FC<CallsTabProps> = ({ calls, loading, customerId }
             )
           })}
         </div>
+
+      {recordings.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-start gap-3 p-3.5 bg-blue-500/5 border border-blue-500/10 rounded-lg text-slate-400 text-xs leading-normal mb-4">
+            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+            <span>
+              <strong>Meeting Recordings:</strong> Synced from Chrome Extension.
+            </span>
+          </div>
+          <div className="bg-slate-900/20 border border-slate-800/60 rounded-xl divide-y divide-slate-800/60 overflow-hidden">
+            {recordings.map((rec) => (
+              <div key={rec.id} className="p-4 hover:bg-slate-900/25 transition duration-150 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                    <span className="capitalize">{rec.platform.replace('_', ' ')}</span>
+                    <span className="text-slate-500 font-normal">| {new Date(rec.started_at).toLocaleString()}</span>
+                  </div>
+                  <div className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-mono">
+                    {formatDuration(rec.duration_seconds)}
+                  </div>
+                </div>
+                <audio controls className="w-full h-8" src={`https://qrstkwlakctszamkvsgh.supabase.co/storage/v1/object/public/meeting-recordings/${rec.storage_path}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       </div>
       )}
     </div>

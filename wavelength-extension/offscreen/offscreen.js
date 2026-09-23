@@ -268,6 +268,13 @@ async function stopRecording() {
           await window.recordingStore.saveRecording(finalRecord, finalBlob);
         }
 
+        // Upload to Supabase asynchronously
+        if (window.supabaseClient) {
+          window.supabaseClient.uploadRecording(finalRecord, finalBlob)
+            .then(uploadResult => console.log('Successfully uploaded to Supabase:', uploadResult))
+            .catch(err => console.error('Failed to upload to Supabase:', err));
+        }
+
         cleanup();
 
         // Notify background / popup

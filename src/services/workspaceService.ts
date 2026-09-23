@@ -35,6 +35,27 @@ export async function getCustomerCalls(customerId: string): Promise<Call[]> {
 }
 
 /**
+ * Retrieve meeting recordings associated with a specific customer.
+ */
+export async function getCustomerRecordings(customerId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('meeting_recordings')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      throw handleWorkspaceError(error, 'Unable to load recordings.');
+    }
+
+    return data || [];
+  } catch (err: any) {
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while loading recordings.');
+  }
+}
+
+/**
  * Retrieve tasks list associated with a specific customer.
  */
 export async function getCustomerTasks(customerId: string): Promise<Task[]> {

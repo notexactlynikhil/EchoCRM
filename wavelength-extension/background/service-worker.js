@@ -96,6 +96,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .catch((err) => sendResponse({ success: false, error: err.message || String(err) }));
       return true; // async
 
+    case 'MEETING_JOINED':
+      if (!recordingState.isRecording && sender.tab && sender.tab.id) {
+        console.log('Auto-starting recording for meeting:', message.payload.meetingUrl);
+        handleStartRecording({
+          tabId: sender.tab.id,
+          platform: message.payload.platform,
+          meetingUrl: message.payload.meetingUrl
+        }).catch(e => console.error('Failed to auto-start recording:', e));
+      }
+      return false;
+
     case 'STOP_RECORDING':
       handleStopRecording()
         .then((res) => sendResponse({ success: true, ...res }))

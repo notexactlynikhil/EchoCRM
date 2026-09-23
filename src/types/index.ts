@@ -21,6 +21,20 @@ export interface Customer {
   created_at: string;
 }
 
+export interface MeetingRecording {
+  id: string;
+  platform: string;
+  meeting_url: string;
+  started_at: string;
+  stopped_at?: string;
+  duration_seconds: number;
+  mime_type: string;
+  storage_path: string;
+  status: string;
+  customer_id?: string;
+  customer?: { name: string };
+}
+
 export interface Call {
   id: string;
   customer_id: string;

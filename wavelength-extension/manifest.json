@@ -20,7 +20,8 @@
     "*://meet.google.com/*",
     "*://teams.microsoft.com/*",
     "*://teams.live.com/*",
-    "*://*.zoom.us/*"
+    "*://*.zoom.us/*",
+    "*://*.supabase.co/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"

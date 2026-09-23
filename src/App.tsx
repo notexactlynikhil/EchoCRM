@@ -6,6 +6,7 @@ import { RealtimeSyncProvider } from './contexts/RealtimeSyncContext'
 import { DashboardPage } from './pages/DashboardPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { GlobalTasksPage } from './pages/GlobalTasksPage'
+import { RecordingsPage } from './pages/RecordingsPage'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 const AppContent: React.FC = () => {
@@ -44,6 +45,8 @@ const AppContent: React.FC = () => {
         return <CustomersPage />
       case 'tasks':
         return <GlobalTasksPage />
+      case 'recordings':
+        return <RecordingsPage />
       case 'settings':
         return (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4 select-none">
