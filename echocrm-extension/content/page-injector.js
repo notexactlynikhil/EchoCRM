@@ -1,5 +1,5 @@
 /**
- * Wavelength Page-World WebRTC Microphone Injector
+ * EchoCRM Page-World WebRTC Microphone Injector
  * Runs in the MAIN execution world at document_start.
  * Intercepts navigator.mediaDevices.getUserMedia() and RTCPeerConnection to route outgoing meeting audio
  * through an AudioContext destination, enabling genuine remote participant disclosure across Google Meet, Teams, and Zoom.
@@ -8,8 +8,8 @@
 (function () {
   'use strict';
 
-  if (window.__WAVELENGTH_INJECTOR_ACTIVE__) return;
-  window.__WAVELENGTH_INJECTOR_ACTIVE__ = true;
+  if (window.__ECHOCRM_INJECTOR_ACTIVE__) return;
+  window.__ECHOCRM_INJECTOR_ACTIVE__ = true;
 
   let originalGetUserMedia = null;
   let activeAudioCtx = null;
@@ -66,7 +66,7 @@
 
       return new MediaStream([mixedTrack, ...rawStream.getVideoTracks()]);
     } catch (err) {
-      console.warn('[Wavelength] Audio pipeline error, falling back to raw stream:', err);
+      console.warn('[EchoCRM] Audio pipeline error, falling back to raw stream:', err);
       return rawStream;
     }
   }
@@ -94,24 +94,24 @@
 
   // Handle messages from content script (isolated world)
   window.addEventListener('message', async (event) => {
-    if (event.source !== window || !event.data || event.data.target !== 'WAVELENGTH_PAGE') return;
+    if (event.source !== window || !event.data || event.data.target !== 'ECHOCRM_PAGE') return;
 
-    if (event.data.type === 'WAVELENGTH_PING') {
+    if (event.data.type === 'ECHOCRM_PING') {
       window.postMessage({
-        target: 'WAVELENGTH_CONTENT',
-        type: 'WAVELENGTH_PONG',
+        target: 'ECHOCRM_CONTENT',
+        type: 'ECHOCRM_PONG',
         hookActive: isHookActive,
         hasAudioContext: Boolean(activeAudioCtx)
       }, '*');
       return;
     }
 
-    if (event.data.type === 'WAVELENGTH_INJECT_DISCLOSURE') {
+    if (event.data.type === 'ECHOCRM_INJECT_DISCLOSURE') {
       const rawBytes = event.data.audioBytes;
       const disclosureResult = await transmitDisclosureAudioData(rawBytes);
       window.postMessage({
-        target: 'WAVELENGTH_CONTENT',
-        type: 'WAVELENGTH_DISCLOSURE_RESULT',
+        target: 'ECHOCRM_CONTENT',
+        type: 'ECHOCRM_DISCLOSURE_RESULT',
         result: disclosureResult
       }, '*');
     }
@@ -149,7 +149,7 @@
 
       return new Promise((resolve) => {
         bufferSource.onended = () => {
-          console.log('[Wavelength] Disclosure audio finished playing into meeting WebRTC track.');
+          console.log('[EchoCRM] Disclosure audio finished playing into meeting WebRTC track.');
           resolve({
             delivered: true,
             reason: 'TRANSMITTED_TO_WEBRTC_TRACK',
@@ -169,7 +169,7 @@
         }, (decodedBuffer.duration + 0.5) * 1000);
       });
     } catch (err) {
-      console.error('[Wavelength] Failed to play disclosure into WebRTC track:', err);
+      console.error('[EchoCRM] Failed to play disclosure into WebRTC track:', err);
       return {
         delivered: false,
         reason: 'TRANSMISSION_ERROR',
@@ -178,5 +178,5 @@
     }
   }
 
-  console.log('[Wavelength] Page-world WebRTC audio injector active.');
+  console.log('[EchoCRM] Page-world WebRTC audio injector active.');
 })();

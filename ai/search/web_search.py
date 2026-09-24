@@ -50,7 +50,7 @@ class KrillWebSearchProvider(WebSearchTool):
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": "Wavelength-CRM/1.0"
+            "User-Agent": "EchoCRM-CRM/1.0"
         }
 
         payload = {

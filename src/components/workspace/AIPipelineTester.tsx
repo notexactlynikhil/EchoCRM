@@ -61,7 +61,7 @@ export const AIPipelineTester: React.FC = () => {
           setResponse(res);
         }
       } else {
-        setError('window.ai bridge unavailable. Launch Wavelength inside Electron desktop client to run local AI processing.');
+        setError('window.ai bridge unavailable. Launch EchoCRM inside Electron desktop client to run local AI processing.');
       }
     } catch (err: any) {
       setError(err?.message || 'Error processing sample call');
@@ -78,7 +78,7 @@ export const AIPipelineTester: React.FC = () => {
     setQueryResult(null);
     try {
       if (window.ai?.query) {
-        const contextStr = response?.transcript || "Sample Call Context: Alex Jenkins from APEX Global discussing Wavelength CRM platform.";
+        const contextStr = response?.transcript || "Sample Call Context: Alex Jenkins from APEX Global discussing EchoCRM CRM platform.";
         const res = await window.ai.query(promptToRun, contextStr);
         setQueryResult(res);
       } else {

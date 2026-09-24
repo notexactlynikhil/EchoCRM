@@ -11,7 +11,7 @@ from ai.analysis.validator import JSONValidator
 
 class CallPipeline:
     """
-    Complete audio processing pipeline for Wavelength AI:
+    Complete audio processing pipeline for EchoCRM AI:
     Audio -> Speech-to-Text -> Local LLM -> Structured JSON
     """
 

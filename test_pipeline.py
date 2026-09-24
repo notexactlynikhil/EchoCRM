@@ -27,7 +27,7 @@ def main():
             audio_input = alt_path
 
     print("====================================")
-    print("WAVELENGTH AI PIPELINE")
+    print("ECHOCRM AI PIPELINE")
     print("====================================\n")
     print(f"Audio:\n{audio_input}\n")
 

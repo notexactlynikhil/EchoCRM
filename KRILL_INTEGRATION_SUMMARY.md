@@ -1,8 +1,8 @@
-# Wavelength CRM — Iteration 3: Krill Optional Web Search Integration Summary
+# EchoCRM CRM — Iteration 3: Krill Optional Web Search Integration Summary
 
 ## 📌 Executive Summary
 
-Iteration 3 adds **Krill web-search capabilities** to Wavelength's existing local AI backend as an **optional, local-first external knowledge tool**.
+Iteration 3 adds **Krill web-search capabilities** to EchoCRM's existing local AI backend as an **optional, local-first external knowledge tool**.
 
 ### Core Architecture Principle
 > **Local Model First.** The system processes all standard CRM operations (call transcription, summaries, action items, sentiment analysis) 100% locally using faster-whisper and LLaMA 3.2 via Ollama. **Krill web search is only invoked when a query explicitly requires external or current web information.**
@@ -37,7 +37,7 @@ Iteration 3 adds **Krill web-search capabilities** to Wavelength's existing loca
 ## 2. Architecture & Data Flow
 
 ```text
-                                WAVELENGTH ELECTRON
+                                ECHOCRM ELECTRON
                                 ┌─────────────────┐
                                 │  React UI       │
                                 └────────┬────────┘
@@ -131,7 +131,7 @@ python test_pipeline.py
 - ✅ Offline audio transcription (Whisper) and structured report extraction (LLaMA) continue working 100% locally with zero Krill or internet dependency.
 
 ### Test 3 — Interactive Desktop UI Testing
-1. Launch Wavelength:
+1. Launch EchoCRM:
    ```bash
    npm run dev
    ```

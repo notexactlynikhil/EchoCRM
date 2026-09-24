@@ -20,7 +20,7 @@ Provided CRM/Call Context: "{context}"
 """
 
 SMART_RESPONSE_PROMPT = """
-You are an intelligent CRM AI assistant for Wavelength.
+You are an intelligent CRM AI assistant for EchoCRM.
 
 === CALL TRANSCRIPT / CRM CONTEXT ===
 {context_text}

@@ -1,5 +1,5 @@
 /**
- * Wavelength Supabase Client for Browser Extension
+ * EchoCRM Supabase Client for Browser Extension
  * Uses standard REST & Storage APIs with the client-side anon key.
  * Provides idempotent database records upsert and WebM audio uploads.
  */

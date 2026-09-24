@@ -1,5 +1,5 @@
 /**
- * Wavelength Offscreen Audio Recorder Engine
+ * EchoCRM Offscreen Audio Recorder Engine
  * - Captures SALESPERSON_MIC and REMOTE_AUDIO in isolated channels
  * - Controls remote participant WebRTC disclosure injection with verified tracking
  * - Runs real-time SpeakerSegmenter (VAD) generating a structured speaker timeline

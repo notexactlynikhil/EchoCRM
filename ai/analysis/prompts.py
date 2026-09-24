@@ -1,4 +1,4 @@
-SYSTEM_PROMPT = """You are an expert CRM AI analyst for Wavelength / Echo CRM.
+SYSTEM_PROMPT = """You are an expert CRM AI analyst for EchoCRM / Echo CRM.
 Your task is to analyze sales call transcripts and extract structured CRM insights into pure JSON format.
 
 CRITICAL INSTRUCTION:

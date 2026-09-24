@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-setup_llama_model.py — Standalone Model Setup Utility for Wavelength AI
+setup_llama_model.py — Standalone Model Setup Utility for EchoCRM AI
 
 Locates and sets up the Llama 3.2 3B Instruct GGUF model for local in-process inference.
 1. Reuses existing local Ollama blob copy if available (zero download required).
@@ -124,7 +124,7 @@ def download_from_huggingface() -> bool:
 
 def main():
     print("====================================")
-    print("WAVELENGTH AI — MODEL SETUP UTILITY")
+    print("ECHOCRM AI — MODEL SETUP UTILITY")
     print("====================================\n")
 
     if os.path.exists(DEST_PATH) and os.path.getsize(DEST_PATH) > 0:

@@ -1,5 +1,5 @@
 /**
- * Wavelength Customer Recording Disclosure Module
+ * EchoCRM Customer Recording Disclosure Module
  * Manages loading and playing the preloaded offline TTS audio announcement:
  * "This call is being recorded for quality and training purposes."
  *

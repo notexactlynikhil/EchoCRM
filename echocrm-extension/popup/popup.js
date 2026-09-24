@@ -1,5 +1,5 @@
 /**
- * Wavelength Popup Script
+ * EchoCRM Popup Script
  * Handles meeting detection, WebRTC injector readiness, live VAD meters,
  * and speaker attribution timeline analysis.
  */

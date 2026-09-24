@@ -1,5 +1,5 @@
 /**
- * Wavelength Meeting Detector Content Script
+ * EchoCRM Meeting Detector Content Script
  * Bridges communication between extension background and page-world WebRTC injector.
  * Loads extension audio assets and transfers them to page injector to bypass meeting CSP.
  */
@@ -57,8 +57,8 @@
       let resolved = false;
 
       const handler = (event) => {
-        if (event.source !== window || !event.data || event.data.target !== 'WAVELENGTH_CONTENT') return;
-        if (event.data.type === 'WAVELENGTH_PONG') {
+        if (event.source !== window || !event.data || event.data.target !== 'ECHOCRM_CONTENT') return;
+        if (event.data.type === 'ECHOCRM_PONG') {
           window.removeEventListener('message', handler);
           resolved = true;
           resolve({
@@ -69,7 +69,7 @@
       };
 
       window.addEventListener('message', handler);
-      window.postMessage({ target: 'WAVELENGTH_PAGE', type: 'WAVELENGTH_PING' }, '*');
+      window.postMessage({ target: 'ECHOCRM_PAGE', type: 'ECHOCRM_PING' }, '*');
 
       setTimeout(() => {
         if (!resolved) {
@@ -86,8 +86,8 @@
       let resolved = false;
 
       const handler = (event) => {
-        if (event.source !== window || !event.data || event.data.target !== 'WAVELENGTH_CONTENT') return;
-        if (event.data.type === 'WAVELENGTH_DISCLOSURE_RESULT') {
+        if (event.source !== window || !event.data || event.data.target !== 'ECHOCRM_CONTENT') return;
+        if (event.data.type === 'ECHOCRM_DISCLOSURE_RESULT') {
           window.removeEventListener('message', handler);
           resolved = true;
           resolve(event.data.result);
@@ -103,8 +103,8 @@
         const byteArr = Array.from(new Uint8Array(arrayBuf));
 
         window.postMessage({
-          target: 'WAVELENGTH_PAGE',
-          type: 'WAVELENGTH_INJECT_DISCLOSURE',
+          target: 'ECHOCRM_PAGE',
+          type: 'ECHOCRM_INJECT_DISCLOSURE',
           audioBytes: byteArr
         }, '*');
       } catch (fetchErr) {

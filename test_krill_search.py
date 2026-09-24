@@ -10,7 +10,7 @@ from ai.search.web_search import KrillWebSearchProvider, MockWebSearchProvider
 
 def run_tests():
     print("====================================")
-    print("WAVELENGTH KRILL SEARCH INTEGRATION TEST")
+    print("ECHOCRM KRILL SEARCH INTEGRATION TEST")
     print("====================================\n")
 
     orchestrator = SmartQueryOrchestrator()
@@ -19,7 +19,7 @@ def run_tests():
     # TEST 1: Internal Call Analysis Query (Local-First)
     # ----------------------------------------------------
     print("[TEST 1/3] Internal Call Query (Should NOT trigger Krill)...")
-    call_context = "Alex Jenkins called from APEX Global interested in Wavelength CRM platform. Budget is $50k."
+    call_context = "Alex Jenkins called from APEX Global interested in EchoCRM CRM platform. Budget is $50k."
     internal_query = "Summarize the customer intent and budget."
     
     res1 = orchestrator.execute_query(query=internal_query, context=call_context)

@@ -177,7 +177,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false, // Sandbox set to false so preload can access IPC cleanly
     },
-    title: 'Wavelength',
+    title: 'EchoCRM',
     autoHideMenuBar: true,
     show: false
   });
