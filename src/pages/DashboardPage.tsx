@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { fetchDashboardData, DashboardData } from '../services/db'
+import { fetchDashboardData, DashboardData, fetchDealStageBreakdown, fetchCallsPerDay, StageBreakdown, CallsPerDay } from '../services/db'
+import { DashboardCharts } from '../components/dashboard/DashboardCharts'
 import { 
   Users, 
   CheckSquare, 
@@ -23,6 +24,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onNavigateToTasks
 }) => {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [stageBreakdown, setStageBreakdown] = useState<StageBreakdown[]>([])
+  const [callsPerDay, setCallsPerDay] = useState<CallsPerDay[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -31,8 +34,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     if (!silent) setLoading(true)
     setErrorMsg(null)
     try {
-      const result = await fetchDashboardData()
+      const [result, stages, calls] = await Promise.all([
+        fetchDashboardData(),
+        fetchDealStageBreakdown(),
+        fetchCallsPerDay(14)
+      ])
       setData(result)
+      setStageBreakdown(stages)
+      setCallsPerDay(calls)
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to load dashboard data. Please try again.')
     } finally {
@@ -210,6 +219,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       </div>
 
+      {/* Charts */}
+      <DashboardCharts stageBreakdown={stageBreakdown} callsPerDay={callsPerDay} />
+
       {/* Main Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -234,7 +246,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="text-slate-500 border-b border-slate-850 text-left font-semibold">
-                      <th className="pb-3 pr-4">Product</th>
+                      <th className="pb-3 pr-4">Property / Listing</th>
                       <th className="pb-3 px-4">Customer</th>
                       <th className="pb-3 px-4">Stage</th>
                       <th className="pb-3 pl-4 text-right">Value</th>

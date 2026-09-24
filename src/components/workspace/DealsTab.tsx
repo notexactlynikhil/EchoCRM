@@ -69,7 +69,7 @@ export const DealsTab: React.FC<DealsTabProps> = ({
         </div>
         <h4 className="text-sm font-bold text-slate-350">No deals in pipeline</h4>
         <p className="text-xs text-slate-500 mt-1 max-w-xs text-center leading-relaxed">
-          Create deals in Supabase to track product valuations and expectations for this customer.
+          Deals appear here automatically when a call discusses a property. Track valuations and expectations for this customer.
         </p>
       </div>
     )

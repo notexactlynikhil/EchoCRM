@@ -7,7 +7,8 @@ import { TasksTab } from '../components/workspace/TasksTab'
 import { DealsTab } from '../components/workspace/DealsTab'
 import { TaskFormModal } from '../components/workspace/TaskFormModal'
 import { DeleteTaskDialog } from '../components/workspace/DeleteTaskDialog'
-import { ChevronRight, ArrowLeft, User, PhoneCall, CheckSquare, TrendingUp, AlertCircle } from 'lucide-react'
+import { exportCustomerCsv, exportCustomerPdf } from '../services/exportService'
+import { ChevronRight, ArrowLeft, User, PhoneCall, CheckSquare, TrendingUp, AlertCircle, Download, FileText, Loader2 } from 'lucide-react'
 
 interface CustomerWorkspacePageProps {
   customer: Customer;
@@ -25,19 +26,46 @@ export const CustomerWorkspacePage: React.FC<CustomerWorkspacePageProps> = ({
     recordings,
     tasks,
     deals,
+    summaries,
     loading,
     error,
     addTask,
     editTask,
     toggleTaskComplete,
     removeTask,
-    changeDealStage
+    changeDealStage,
+    editSummary
   } = useWorkspace(customer.id)
 
   // Modals Open & Selection States
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false)
   const [isDeleteTaskOpen, setIsDeleteTaskOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const exportPayload = { customer, calls, summaries, tasks, deals }
+
+  const handleExportCsv = () => {
+    setExportError(null)
+    try {
+      exportCustomerCsv(exportPayload)
+    } catch (err: any) {
+      setExportError(err?.message || 'CSV export failed.')
+    }
+  }
+
+  const handleExportPdf = async () => {
+    setExportError(null)
+    setExportingPdf(true)
+    try {
+      await exportCustomerPdf(exportPayload)
+    } catch (err: any) {
+      setExportError(err?.message || 'PDF export failed.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   const handleAddTaskClick = () => {
     setSelectedTask(null)
@@ -72,7 +100,14 @@ export const CustomerWorkspacePage: React.FC<CustomerWorkspacePageProps> = ({
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewTab customer={customer} />
+        return (
+          <OverviewTab
+            customer={customer}
+            summaries={summaries}
+            summariesLoading={loading}
+            onUpdateSummary={editSummary}
+          />
+        )
       case 'calls':
         return <CallsTab calls={calls} recordings={recordings} loading={loading} customerId={customer.id} />
       case 'tasks':
@@ -126,7 +161,34 @@ export const CustomerWorkspacePage: React.FC<CustomerWorkspacePageProps> = ({
           <ChevronRight className="w-4 h-4 text-slate-650 shrink-0" />
           <span className="text-white font-bold">{customer.name}</span>
         </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold transition"
+            title="Export customer history as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
+          <button
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+            title="Export customer history as PDF"
+          >
+            {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+            <span>PDF</span>
+          </button>
+        </div>
       </div>
+
+      {exportError && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 text-xs shrink-0">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <span>{exportError}</span>
+        </div>
+      )}
 
       {/* 2. Error Display Panel */}
       {error && (

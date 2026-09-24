@@ -1,6 +1,7 @@
 import React from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useRealtimeSync } from '../contexts/RealtimeSyncContext'
+import { useTaskNotifications } from '../hooks/useTaskNotifications'
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,10 +9,12 @@ import {
   Settings as SettingsIcon, 
   LogOut, 
   ShieldCheck,
-  Mic
+  Mic,
+  Kanban,
+  Search
 } from 'lucide-react'
 
-export type TabType = 'dashboard' | 'customers' | 'tasks' | 'recordings' | 'settings';
+export type TabType = 'dashboard' | 'customers' | 'deals' | 'tasks' | 'search' | 'recordings' | 'settings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -26,11 +29,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   const { user, signOut } = useAuth()
   const { status: syncStatus } = useRealtimeSync()
+  useTaskNotifications()
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'customers', label: 'Customers', icon: Users },
+    { id: 'deals', label: 'Pipeline', icon: Kanban },
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    { id: 'search', label: 'Search', icon: Search },
     { id: 'recordings', label: 'Recordings', icon: Mic },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ] as const;
@@ -61,7 +67,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight leading-none">Echo CRM</h1>
-              <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Desktop Client</span>
+              <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Real Estate</span>
             </div>
           </div>
 

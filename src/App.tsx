@@ -7,7 +7,9 @@ import { DashboardPage } from './pages/DashboardPage'
 import { CustomersPage } from './pages/CustomersPage'
 import { GlobalTasksPage } from './pages/GlobalTasksPage'
 import { RecordingsPage } from './pages/RecordingsPage'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { DealsPipelinePage } from './pages/DealsPipelinePage'
+import { TranscriptSearchPage } from './pages/TranscriptSearchPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 const AppContent: React.FC = () => {
   const { session, loading } = useAuth()
@@ -43,24 +45,16 @@ const AppContent: React.FC = () => {
         )
       case 'customers':
         return <CustomersPage />
+      case 'deals':
+        return <DealsPipelinePage />
       case 'tasks':
         return <GlobalTasksPage />
+      case 'search':
+        return <TranscriptSearchPage />
       case 'recordings':
         return <RecordingsPage />
       case 'settings':
-        return (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 select-none">
-            <div className="p-4 bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-full">
-              <SettingsIcon className="w-8 h-8" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white text-sans">Application Settings</h2>
-              <p className="text-sm text-slate-400 max-w-sm">
-                Desktop interface credentials, profile themes, and API details.
-              </p>
-            </div>
-          </div>
-        )
+        return <SettingsPage />
       default:
         return null
     }

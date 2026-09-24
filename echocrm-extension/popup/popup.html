@@ -30,6 +30,26 @@
       <button id="alertCloseBtn" class="alert-close">&times;</button>
     </div>
 
+    <!-- CLOUD SYNC / ACCOUNT -->
+    <div class="card cloud-card">
+      <div class="card-header">
+        <span class="card-label">Cloud Sync</span>
+        <span id="cloudStatusBadge" class="platform-badge unverified">CHECKING</span>
+      </div>
+      <div id="cloudSignedOut">
+        <div class="cloud-form">
+          <input id="cloudEmail" type="email" placeholder="Email" autocomplete="username" />
+          <input id="cloudPassword" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="cloudSignInBtn" class="secondary-btn">Sign in to sync</button>
+        </div>
+        <div id="cloudAuthError" class="auth-error hidden"></div>
+      </div>
+      <div id="cloudSignedIn" class="hidden">
+        <div class="cloud-user">Signed in as <span id="cloudUserEmail"></span></div>
+        <button id="cloudSignOutBtn" class="link-btn">Sign out</button>
+      </div>
+    </div>
+
     <!-- IDLE VIEW: Ready to Record -->
     <section id="idleView" class="view-panel">
       <!-- Target Platform Detection Card -->
@@ -210,6 +230,7 @@
   </div>
 
   <script src="../storage/recording-store.js"></script>
+  <script src="../supabase/client.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

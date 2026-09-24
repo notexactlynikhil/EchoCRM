@@ -835,3 +835,51 @@ body {
   70% { transform: scale(1.6); opacity: 0; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+
+/* Cloud Sync / Account */
+.cloud-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cloud-form input {
+  width: 100%;
+  padding: 9px 11px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 12px;
+  outline: none;
+}
+
+.cloud-form input:focus {
+  border-color: var(--border-focus);
+}
+
+.cloud-form .secondary-btn {
+  margin-top: 2px;
+}
+
+.auth-error {
+  margin-top: 8px;
+  padding: 7px 9px;
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  color: #fca5a5;
+  font-size: 11px;
+}
+
+.cloud-user {
+  margin: 10px 0 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cloud-user span {
+  color: var(--text-main);
+  font-weight: 600;
+}

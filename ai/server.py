@@ -12,11 +12,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from ai.config.settings import settings
 from ai.pipeline.orchestrator import process_call, CallPipeline
 from ai.analysis.llm_provider import get_llm_provider, LocalLlamaProvider
-from ai.analysis.smart_query import SmartQueryOrchestrator
 
 app = FastAPI(title="EchoCRM AI Service", version="1.0.0")
 
-smart_orchestrator = SmartQueryOrchestrator()
 model_warmed_up: bool = False
 
 @app.on_event("startup")
@@ -39,14 +37,9 @@ def startup_event():
 class ProcessCallRequest(BaseModel):
     audio_path: Optional[str] = None
 
-class QueryRequest(BaseModel):
-    prompt: str
-    context: Optional[str] = ""
-    enable_web_search: Optional[bool] = None
-
 @app.get("/health")
 def health_check():
-    """Health check endpoint to verify Python AI service availability and Krill web search config."""
+    """Health check endpoint to verify Python AI service availability."""
     provider = get_llm_provider()
     return {
         "status": "ok",
@@ -54,9 +47,7 @@ def health_check():
         "whisper_model": settings.WHISPER_MODEL_SIZE,
         "llm_provider": provider.get_provider_name(),
         "llm_model": provider.get_model_name(),
-        "model_warmed_up": model_warmed_up,
-        "krill_search_enabled": settings.KRILL_ENABLED,
-        "krill_api_key_configured": bool(settings.KRILL_API_KEY)
+        "model_warmed_up": model_warmed_up
     }
 
 
@@ -65,7 +56,7 @@ def handle_process_call(request: ProcessCallRequest) -> Dict[str, Any]:
     """
     Processes local audio call recording via Whisper + Ollama LLM.
     Returns transcript, structured CRM analysis, and execution metadata.
-    Does NOT depend on Krill/Internet (100% Local-First).
+    100% Local-First, no internet dependency.
     """
     audio_path = request.audio_path
     
@@ -85,24 +76,6 @@ def handle_process_call(request: ProcessCallRequest) -> Dict[str, Any]:
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Processing exception: {str(e)}")
-
-@app.post("/query")
-def handle_query(request: QueryRequest) -> Dict[str, Any]:
-    """
-    Executes local-first query with optional Krill web search for external information.
-    """
-    if not request.prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt query string cannot be empty")
-
-    try:
-        result = smart_orchestrator.execute_query(
-            query=request.prompt,
-            context=request.context,
-            force_web_search=request.enable_web_search
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Query execution failed: {str(e)}")
 
 def main():
 

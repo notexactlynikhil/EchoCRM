@@ -1,7 +1,16 @@
 import { supabase } from '../supabase/client';
-import { AIPipelineResponse } from '../types';
+import { AIPipelineResponse, MeetingRecording } from '../types';
 
-export const processAndSaveCall = async (audioPath: string, customerId: string) => {
+export interface ProcessCallOptions {
+  recordingId?: string;
+  audioUrl?: string;
+}
+
+export const processAndSaveCall = async (
+  audioPath: string,
+  customerId: string,
+  options: ProcessCallOptions = {}
+) => {
   try {
     // 1. Get logged in user session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -10,13 +19,19 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
     }
     const ownerId = session.user.id;
 
-    // 2. Insert preliminary call record
+    // 2. Remove any prior call created for this recording so reprocessing is idempotent
+    if (options.recordingId) {
+      await supabase.from('calls').delete().eq('recording_id', options.recordingId);
+    }
+
+    // 3. Insert preliminary call record
     const { data: callData, error: callError } = await supabase
       .from('calls')
       .insert({
         customer_id: customerId,
         owner_id: ownerId,
-        audio_url: audioPath,
+        audio_url: options.audioUrl || audioPath,
+        recording_id: options.recordingId || null,
         status: 'processing',
       })
       .select()
@@ -28,7 +43,7 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
 
     const callId = callData.id;
 
-    // 3. Trigger the local AI pipeline via Electron IPC (window.ai)
+    // 4. Trigger the local AI pipeline via Electron IPC (window.ai)
     if (!window.ai || !window.ai.processCall) {
       // If we are in the browser, fallback to sample call for testing
       throw new Error('window.ai bridge is unavailable. Please run the app in Electron desktop mode.');
@@ -46,11 +61,12 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
       throw new Error(`AI processing failed: ${res.metadata?.errors?.join(', ') || res.status}`);
     }
 
-    // 4. Update the call record with the final results
+    // 5. Update the call record with the final results
     const { error: updateCallError } = await supabase
       .from('calls')
       .update({
         raw_transcript: res.transcript,
+        clean_transcript: res.clean_transcript || null,
         duration_seconds: Math.round(res.metadata.audio_duration_seconds),
         status: 'done'
       })
@@ -60,7 +76,7 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
       throw new Error(`Failed to update call record: ${updateCallError.message}`);
     }
 
-    // 5. Insert Call Summary
+    // 6. Insert Call Summary
     const productDiscussed = res.analysis.products_discussed && res.analysis.products_discussed.length > 0 
       ? res.analysis.products_discussed[0] 
       : null;
@@ -79,7 +95,7 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
       console.error('Failed to create call summary:', summaryError);
     }
 
-    // 6. Insert Tasks from Action Items
+    // 7. Insert Tasks from Action Items
     if (res.analysis.action_items && res.analysis.action_items.length > 0) {
       const taskInserts = res.analysis.action_items.map(item => ({
         customer_id: customerId,
@@ -99,7 +115,7 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
       }
     }
 
-    // 7. Upsert Deals based on products discussed
+    // 8. Upsert Deals based on products discussed
     if (productDiscussed && res.analysis.deal_stage) {
       // Check if a deal already exists for this customer and product
       const { data: existingDeals } = await supabase
@@ -132,6 +148,54 @@ export const processAndSaveCall = async (audioPath: string, customerId: string) 
 
   } catch (error: any) {
     console.error('Error processing and saving call:', error);
+    throw error;
+  }
+};
+
+/**
+ * Transcribe and summarize a meeting recording captured by the Chrome extension.
+ * Downloads the audio from Supabase Storage, then delegates to the same local AI
+ * pipeline used for manual uploads (processAndSaveCall) and tracks processing
+ * status on the meeting_recordings row.
+ */
+export const processRecording = async (recording: MeetingRecording) => {
+  if (!recording.customer_id) {
+    throw new Error('Assign this recording to a customer before processing.');
+  }
+  if (!window.electronAPI?.downloadToTemp) {
+    throw new Error('Processing recordings requires the Electron desktop app.');
+  }
+  if (!window.ai?.processCall) {
+    throw new Error('The local AI service is unavailable. Make sure Ollama and the AI service are running.');
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('meeting-recordings')
+    .getPublicUrl(recording.storage_path);
+  const audioUrl = publicUrlData?.publicUrl;
+  if (!audioUrl) {
+    throw new Error('Could not resolve the recording audio URL.');
+  }
+
+  const setStatus = async (status: string, lastError: string | null = null) => {
+    await supabase
+      .from('meeting_recordings')
+      .update({ status, last_error: lastError, updated_at: new Date().toISOString() })
+      .eq('id', recording.id);
+  };
+
+  await setStatus('processing');
+
+  try {
+    const localPath = await window.electronAPI.downloadToTemp(audioUrl, `${recording.id}.webm`);
+    const res = await processAndSaveCall(localPath, recording.customer_id, {
+      recordingId: recording.id,
+      audioUrl
+    });
+    await setStatus('processed');
+    return res;
+  } catch (error: any) {
+    await setStatus('failed', error?.message || 'Processing failed');
     throw error;
   }
 };

@@ -1,0 +1,26 @@
+{
+  "whisper_warmup_seconds": 7.1,
+  "results": [
+    {
+      "audio_seconds": 60,
+      "transcription_seconds": 5.58,
+      "transcription_realtime_factor": 10.75,
+      "pipeline_seconds": 18.37,
+      "status": "SUCCESS"
+    },
+    {
+      "audio_seconds": 300,
+      "transcription_seconds": 16.25,
+      "transcription_realtime_factor": 18.46,
+      "pipeline_seconds": 38.83,
+      "status": "SUCCESS"
+    },
+    {
+      "audio_seconds": 900,
+      "transcription_seconds": 75.29,
+      "transcription_realtime_factor": 11.95,
+      "pipeline_seconds": 111.74,
+      "status": "SUCCESS"
+    }
+  ]
+}

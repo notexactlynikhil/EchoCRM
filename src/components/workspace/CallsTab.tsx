@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react'
-import { Call } from '../../types'
-import { PhoneCall, Calendar, Clock, Info, UploadCloud, Loader2, AlertCircle } from 'lucide-react'
-import { processAndSaveCall } from '../../services/aiPipelineService'
+import { Call, MeetingRecording } from '../../types'
+import { PhoneCall, Calendar, Clock, Info, UploadCloud, Loader2, AlertCircle, Play, RotateCw, CheckCircle2 } from 'lucide-react'
+import { processAndSaveCall, processRecording } from '../../services/aiPipelineService'
+import { getRecordingPublicUrl } from '../../services/db'
 import { AIPipelineTester } from './AIPipelineTester'
 
 interface CallsTabProps {
@@ -15,6 +16,20 @@ export const CallsTab: React.FC<CallsTabProps> = ({ calls, recordings = [], load
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
+  const [processingRecordingId, setProcessingRecordingId] = useState<string | null>(null);
+  const [recordingError, setRecordingError] = useState<{ id: string; message: string } | null>(null);
+
+  const handleProcessRecording = async (rec: MeetingRecording) => {
+    setRecordingError(null);
+    setProcessingRecordingId(rec.id);
+    try {
+      await processRecording({ ...rec, customer_id: rec.customer_id || customerId });
+    } catch (err: any) {
+      setRecordingError({ id: rec.id, message: err?.message || 'Failed to process recording.' });
+    } finally {
+      setProcessingRecordingId(null);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,16 +219,62 @@ export const CallsTab: React.FC<CallsTabProps> = ({ calls, recordings = [], load
           <div className="bg-slate-900/20 border border-slate-800/60 rounded-xl divide-y divide-slate-800/60 overflow-hidden">
             {recordings.map((rec) => (
               <div key={rec.id} className="p-4 hover:bg-slate-900/25 transition duration-150 space-y-3">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
+                <div className="flex justify-between items-center gap-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-300 font-bold min-w-0">
                     <span className="capitalize">{rec.platform.replace('_', ' ')}</span>
-                    <span className="text-slate-500 font-normal">| {new Date(rec.started_at).toLocaleString()}</span>
+                    <span className="text-slate-500 font-normal truncate">| {new Date(rec.started_at).toLocaleString()}</span>
                   </div>
-                  <div className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-mono">
-                    {formatDuration(rec.duration_seconds)}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {rec.status === 'processed' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                        <CheckCircle2 className="w-3 h-3" /> Processed
+                      </span>
+                    )}
+                    {rec.status === 'failed' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider bg-rose-500/10 text-rose-400 border-rose-500/20">
+                        <AlertCircle className="w-3 h-3" /> Failed
+                      </span>
+                    )}
+                    <div className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-mono">
+                      {formatDuration(rec.duration_seconds)}
+                    </div>
+                    <button
+                      onClick={() => handleProcessRecording(rec)}
+                      disabled={processingRecordingId === rec.id || rec.status === 'processing'}
+                      title="Run the local AI pipeline on this recording"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[11px] rounded-lg transition shadow-md"
+                    >
+                      {processingRecordingId === rec.id ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Processing...</span>
+                        </>
+                      ) : rec.status === 'processed' ? (
+                        <>
+                          <RotateCw className="w-3.5 h-3.5" />
+                          <span>Reprocess</span>
+                        </>
+                      ) : rec.status === 'failed' ? (
+                        <>
+                          <RotateCw className="w-3.5 h-3.5" />
+                          <span>Retry</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-white" />
+                          <span>Process</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <audio controls className="w-full h-8" src={`https://qrstkwlakctszamkvsgh.supabase.co/storage/v1/object/public/meeting-recordings/${rec.storage_path}`} />
+                <audio controls className="w-full h-8" src={getRecordingPublicUrl(rec.storage_path)} />
+                {recordingError && recordingError.id === rec.id && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{recordingError.message}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>

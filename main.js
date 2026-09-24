@@ -1,7 +1,10 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 
 let pythonProcess = null;
 const AI_SERVICE_PORT = 8000;
@@ -73,6 +76,41 @@ function makeHTTPRequest(options, postData = null) {
   });
 }
 
+// Download a remote recording to a local temp file so the Python pipeline can read it.
+function downloadToTempFile(url, filename) {
+  return new Promise((resolve, reject) => {
+    const safeName = (filename || `recording-${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const targetPath = path.join(os.tmpdir(), 'echocrm-recordings', safeName);
+
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+
+    const request = https.get(url, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        downloadToTempFile(res.headers.location, filename).then(resolve).catch(reject);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(new Error(`Failed to download recording (HTTP ${res.statusCode})`));
+        return;
+      }
+
+      const fileStream = fs.createWriteStream(targetPath);
+      res.pipe(fileStream);
+      fileStream.on('finish', () => {
+        fileStream.close(() => resolve(targetPath));
+      });
+      fileStream.on('error', (err) => reject(err));
+    });
+
+    request.on('error', (err) => reject(err));
+    request.setTimeout(120000, () => {
+      request.destroy(new Error('Recording download timed out'));
+    });
+  });
+}
+
 // Register IPC Handlers
 function setupIPCHandlers() {
   ipcMain.handle('ai:checkHealth', async () => {
@@ -137,30 +175,41 @@ function setupIPCHandlers() {
     }
   });
 
-  ipcMain.handle('ai:query', async (event, { prompt, context, enableWebSearch }) => {
-    try {
-      const options = {
-        hostname: '127.0.0.1',
-        port: AI_SERVICE_PORT,
-        path: '/query',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      };
-      const res = await makeHTTPRequest(options, {
-        prompt,
-        context: context || '',
-        enable_web_search: enableWebSearch
-      });
-      return res;
-    } catch (err) {
-      return {
-        query: prompt,
-        answer: `Query failed: ${err.message}`,
-        used_web_search: false,
-        sources: [],
-        search_error: err.message
-      };
+  ipcMain.handle('recording:download', async (event, { url, filename }) => {
+    if (!url) {
+      throw new Error('No recording URL provided');
     }
+    return downloadToTempFile(url, filename);
+  });
+
+  ipcMain.handle('export:pdf', async (event, { html, filename }) => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Export as PDF',
+      defaultPath: filename,
+      filters: [{ name: 'PDF Document', extensions: ['pdf'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+
+    const printWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+    try {
+      await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      const pdfData = await printWindow.webContents.printToPDF({ printBackground: true });
+      fs.writeFileSync(filePath, pdfData);
+      return { success: true, filePath };
+    } finally {
+      printWindow.destroy();
+    }
+  });
+
+  ipcMain.handle('notify:show', async (event, { title, body }) => {
+    if (!Notification.isSupported()) {
+      return { success: false, error: 'Notifications are not supported on this system.' };
+    }
+    new Notification({ title: title || 'EchoCRM', body: body || '' }).show();
+    return { success: true };
   });
 }
 

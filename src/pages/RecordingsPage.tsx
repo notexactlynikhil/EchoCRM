@@ -1,15 +1,27 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabase/client'
 import { MeetingRecording, Customer } from '../types'
-import { fetchMeetingRecordings, assignRecordingToCustomer } from '../services/db'
+import { fetchMeetingRecordings, assignRecordingToCustomer, getRecordingPublicUrl } from '../services/db'
+import { processRecording } from '../services/aiPipelineService'
 import { useRealtimeSync } from '../contexts/RealtimeSyncContext'
-import { Mic, Link as LinkIcon, Calendar, Clock, RefreshCw } from 'lucide-react'
+import { Mic, Link as LinkIcon, Calendar, Clock, RefreshCw, Play, Loader2, AlertCircle, CheckCircle2, RotateCw } from 'lucide-react'
+
+const getProcessingBadge = (status: string) => {
+  const mappings: Record<string, { label: string; classes: string }> = {
+    processing: { label: 'Processing', classes: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+    processed: { label: 'Processed', classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    failed: { label: 'Failed', classes: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
+  }
+  return mappings[status] || null
+}
 
 export const RecordingsPage: React.FC = () => {
   const [recordings, setRecordings] = useState<MeetingRecording[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [processError, setProcessError] = useState<{ id: string; message: string } | null>(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -56,6 +68,22 @@ export const RecordingsPage: React.FC = () => {
       console.error('Failed to assign:', e)
     } finally {
       setAssigningId(null)
+    }
+  }
+
+  const handleProcess = async (rec: MeetingRecording) => {
+    setProcessError(null)
+    setProcessingId(rec.id)
+    setRecordings(prev => prev.map(r => r.id === rec.id ? { ...r, status: 'processing', last_error: null } : r))
+    try {
+      await processRecording(rec)
+      setRecordings(prev => prev.map(r => r.id === rec.id ? { ...r, status: 'processed', last_error: null } : r))
+    } catch (e: any) {
+      const message = e?.message || 'Processing failed'
+      setProcessError({ id: rec.id, message })
+      setRecordings(prev => prev.map(r => r.id === rec.id ? { ...r, status: 'failed', last_error: message } : r))
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -115,7 +143,7 @@ export const RecordingsPage: React.FC = () => {
                 </div>
 
                 <div className="w-full max-w-md pt-2">
-                  <audio controls className="w-full h-8" src={`https://qrstkwlakctszamkvsgh.supabase.co/storage/v1/object/public/meeting-recordings/${rec.storage_path}`} />
+                  <audio controls className="w-full h-8" src={getRecordingPublicUrl(rec.storage_path)} />
                 </div>
               </div>
 
@@ -126,7 +154,7 @@ export const RecordingsPage: React.FC = () => {
                 <select
                   value={rec.customer_id || ''}
                   onChange={(e) => handleAssign(rec.id, e.target.value)}
-                  disabled={assigningId === rec.id}
+                  disabled={assigningId === rec.id || rec.status === 'processing'}
                   className="w-full bg-slate-900 border border-slate-800 text-sm text-slate-200 rounded-lg p-2.5 focus:border-brand-500 outline-none transition"
                 >
                   <option value="">-- Unassigned --</option>
@@ -135,6 +163,55 @@ export const RecordingsPage: React.FC = () => {
                   ))}
                 </select>
                 {assigningId === rec.id && <span className="text-[10px] text-brand-400 animate-pulse">Assigning...</span>}
+
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const badge = getProcessingBadge(rec.status)
+                    return badge ? (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 border rounded uppercase tracking-wider ${badge.classes}`}>
+                        {rec.status === 'processing' && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {rec.status === 'processed' && <CheckCircle2 className="w-3 h-3" />}
+                        {rec.status === 'failed' && <AlertCircle className="w-3 h-3" />}
+                        {badge.label}
+                      </span>
+                    ) : null
+                  })()}
+                  <button
+                    onClick={() => handleProcess(rec)}
+                    disabled={!rec.customer_id || processingId === rec.id || rec.status === 'processing'}
+                    title={!rec.customer_id ? 'Assign a customer first' : 'Run local AI pipeline'}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-500 active:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg transition shadow-md"
+                  >
+                    {processingId === rec.id ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Processing...</span>
+                      </>
+                    ) : rec.status === 'failed' ? (
+                      <>
+                        <RotateCw className="w-3.5 h-3.5" />
+                        <span>Retry</span>
+                      </>
+                    ) : rec.status === 'processed' ? (
+                      <>
+                        <RotateCw className="w-3.5 h-3.5" />
+                        <span>Reprocess</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Process</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {processError?.id === rec.id && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] leading-snug">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{processError.message}</span>
+                  </div>
+                )}
               </div>
 
             </div>

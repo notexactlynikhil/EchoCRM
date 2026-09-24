@@ -1,5 +1,9 @@
 node_modules/
+dist/
 llama-runtime/
 *.gguf
 __pycache__/
 *.pyc
+.env
+.env.local
+.env.*.local

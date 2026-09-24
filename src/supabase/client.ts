@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://qrstkwlakctszamkvsgh.supabase.co'
-const supabaseAnonKey = 'sb_publishable_zqppgbF5RgedwkOOxXaJKg_9abQjvdP'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase configuration. Copy .env.example to .env and set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
+  )
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -10,3 +16,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false // Essential for Electron since it uses file:// protocol instead of Web URLs
   }
 })
+
+export { supabaseUrl, supabaseAnonKey }

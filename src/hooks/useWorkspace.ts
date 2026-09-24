@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Call, Task, Deal, DealStage } from '../types'
+import { Call, Task, Deal, DealStage, CallSummary } from '../types'
 import { 
   getCustomerCalls, 
   getCustomerTasks, 
   getCustomerDeals, 
+  getCustomerCallSummaries,
   createTask, 
   updateTask, 
   deleteTask, 
   updateDealStage,
+  updateCallSummary,
   getCustomerRecordings
 } from '../services/workspaceService'
 import { useRealtimeSync } from '../contexts/RealtimeSyncContext'
@@ -30,6 +32,7 @@ export function useWorkspace(customerId: string) {
   const [recordings, setRecordings] = useState<any[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [summaries, setSummaries] = useState<(CallSummary & { call?: { started_at?: string; customer_id?: string } })[]>([])
   
   // Loading indicators
   const [loading, setLoading] = useState(true)
@@ -42,16 +45,18 @@ export function useWorkspace(customerId: string) {
     setLoading(true)
     setError(null)
     try {
-      const [fetchedCalls, fetchedTasks, fetchedDeals, fetchedRecordings] = await Promise.all([
+      const [fetchedCalls, fetchedTasks, fetchedDeals, fetchedRecordings, fetchedSummaries] = await Promise.all([
         getCustomerCalls(customerId),
         getCustomerTasks(customerId),
         getCustomerDeals(customerId),
-        getCustomerRecordings(customerId)
+        getCustomerRecordings(customerId),
+        getCustomerCallSummaries(customerId)
       ]);
       setCalls(fetchedCalls)
       setRecordings(fetchedRecordings)
       setTasks(fetchedTasks)
       setDeals(fetchedDeals)
+      setSummaries(fetchedSummaries)
     } catch (err: any) {
       setError(err?.message || 'Unable to load workspace data.')
     } finally {
@@ -137,7 +142,14 @@ export function useWorkspace(customerId: string) {
         }
       }
 
-      // 4. Meeting Recordings Table
+      // 4. Call Summaries Table (refresh scoped list; payload has no customer_id)
+      else if (event.table === 'call_summaries') {
+        getCustomerCallSummaries(customerId)
+          .then((fresh) => setSummaries(fresh))
+          .catch(() => {});
+      }
+
+      // 5. Meeting Recordings Table
       else if (event.table === 'meeting_recordings') {
         const record = event.eventType === 'DELETE' ? event.oldRecord : event.newRecord;
         if (record.customer_id !== customerId) return;
@@ -256,6 +268,18 @@ export function useWorkspace(customerId: string) {
     }
   }
 
+  // Correct an AI-generated call summary
+  const editSummary = async (summaryId: string, updates: { summary_text?: string; deal_stage?: DealStage }) => {
+    try {
+      setError(null)
+      const updated = await updateCallSummary(summaryId, updates)
+      setSummaries((prev) => prev.map((s) => (s.id === summaryId ? { ...s, ...updated } : s)))
+    } catch (err: any) {
+      setError(err?.message || 'Call summary could not be updated.')
+      throw err
+    }
+  }
+
   return {
     activeTab,
     setActiveTab,
@@ -263,6 +287,7 @@ export function useWorkspace(customerId: string) {
     recordings,
     tasks,
     deals,
+    summaries,
     loading,
     error,
     addTask,
@@ -270,6 +295,7 @@ export function useWorkspace(customerId: string) {
     toggleTaskComplete,
     removeTask,
     changeDealStage,
+    editSummary,
     refresh: loadAllData
   }
 }

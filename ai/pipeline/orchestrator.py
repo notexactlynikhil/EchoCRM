@@ -7,6 +7,7 @@ from ai.config.settings import settings
 from ai.transcription.transcriber import AudioTranscriber
 from ai.analysis.llm_provider import get_llm_provider, LLMProvider
 from ai.analysis.prompts import SYSTEM_PROMPT, build_analysis_prompt
+from ai.analysis.transcript_cleaner import clean_transcript
 from ai.analysis.validator import JSONValidator
 
 class CallPipeline:
@@ -32,6 +33,7 @@ class CallPipeline:
             "status": "PIPELINE_ERROR",
             "audio_path": audio_path,
             "transcript": "",
+            "clean_transcript": "",
             "analysis": {},
             "metadata": {
                 "processing_time_seconds": 0.0,
@@ -79,10 +81,21 @@ class CallPipeline:
             result["metadata"]["processing_time_seconds"] = round(time.time() - start_total_time, 3)
             return result
 
-        # Step 3: Analyze Transcript via Local LLM
+        # Step 3: Clean Transcript for LLM Consumption
+        # The raw verbatim transcript is preserved in result["transcript"]; only the
+        # cleaned version is sent to the LLM to improve summary quality.
+        try:
+            cleaned_transcript = clean_transcript(transcript_text)
+            result["clean_transcript"] = cleaned_transcript
+        except Exception as e:
+            errors.append(f"TRANSCRIPT_CLEAN_WARNING: {str(e)}")
+            cleaned_transcript = transcript_text
+            result["clean_transcript"] = cleaned_transcript
+
+        # Step 4: Analyze Transcript via Local LLM
         raw_llm_response = ""
         try:
-            prompt = build_analysis_prompt(transcript_text)
+            prompt = build_analysis_prompt(cleaned_transcript)
             raw_llm_response = self.llm_provider.generate(prompt, system_prompt=SYSTEM_PROMPT)
         except Exception as e:
             err_msg = f"LLM_ERROR: {str(e)}"
@@ -92,7 +105,7 @@ class CallPipeline:
             result["metadata"]["processing_time_seconds"] = round(time.time() - start_total_time, 3)
             return result
 
-        # Step 4: Validate Structured Output
+        # Step 5: Validate Structured Output
         is_valid, validated_analysis, val_error = JSONValidator.validate_llm_response(raw_llm_response)
         
         if not is_valid:

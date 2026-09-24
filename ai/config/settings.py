@@ -18,15 +18,9 @@ class AISettings:
     LLAMA_GGUF_PATH: str = os.getenv("LLAMA_GGUF_PATH", "llama-runtime/models/llama-3.2-3b-instruct-q4_k_m.gguf")
     LLAMA_CTX_SIZE: int = int(os.getenv("LLAMA_CTX_SIZE", "4096"))
 
-    # Krill Web Search Settings
-    KRILL_API_KEY: str = os.getenv("KRILL_API_KEY", "")
-    KRILL_SEARCH_URL: str = os.getenv("KRILL_SEARCH_URL", "https://api.krill.sh/v1/search")
-    KRILL_ENABLED: bool = os.getenv("KRILL_ENABLED", "true").lower() in ("true", "1", "yes")
-    KRILL_MAX_RESULTS: int = int(os.getenv("KRILL_MAX_RESULTS", "3"))
-
     # Supported audio formats
     SUPPORTED_AUDIO_EXTENSIONS: List[str] = field(
-        default_factory=lambda: [".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".wma"]
+        default_factory=lambda: [".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".wma", ".webm"]
     )
 
     # CRM Enums matching src/types/index.ts

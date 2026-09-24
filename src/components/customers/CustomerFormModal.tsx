@@ -178,16 +178,16 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
             </div>
           </div>
 
-          {/* Company Name */}
+          {/* Company / Brokerage */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Company</label>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Company / Brokerage</label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                 <Building2 className="w-4.5 h-4.5" />
               </span>
               <input
                 type="text"
-                placeholder="Acme Corp"
+                placeholder="e.g. Mitchell Family Trust"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
                 disabled={loading}

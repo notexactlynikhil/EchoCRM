@@ -41,10 +41,10 @@ export async function getCustomers(
       .order('name', { ascending: sortOrder === 'asc' })
       .range(from, to);
 
-    // Apply OR filter search across name, email, or company
+    // Apply OR filter search across name, email, company, or phone number
     if (search.trim() !== '') {
       const term = `%${search.trim()}%`;
-      query = query.or(`name.ilike.${term},email.ilike.${term},company.ilike.${term}`);
+      query = query.or(`name.ilike.${term},email.ilike.${term},company.ilike.${term},phone.ilike.${term}`);
     }
 
     const { data, count, error } = await query;

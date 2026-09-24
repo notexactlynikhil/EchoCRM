@@ -1,12 +1,23 @@
 import React from 'react'
-import { Customer } from '../../types'
-import { Mail, Phone, Building2, Calendar, Shield } from 'lucide-react'
+import { Customer, CallSummary, DealStage } from '../../types'
+import { CallInsights } from './CallInsights'
+import { Mail, Phone, Building2, Calendar, Shield, Sparkles } from 'lucide-react'
+
+type SummaryWithCall = CallSummary & { call?: { started_at?: string; customer_id?: string } }
 
 interface OverviewTabProps {
   customer: Customer;
+  summaries?: SummaryWithCall[];
+  summariesLoading?: boolean;
+  onUpdateSummary?: (id: string, updates: { summary_text?: string; deal_stage?: DealStage }) => Promise<void>;
 }
 
-export const OverviewTab: React.FC<OverviewTabProps> = ({ customer }) => {
+export const OverviewTab: React.FC<OverviewTabProps> = ({
+  customer,
+  summaries = [],
+  summariesLoading = false,
+  onUpdateSummary
+}) => {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
       month: 'long',
@@ -20,12 +31,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ customer }) => {
   const items = [
     { label: 'Email Address', value: customer.email, icon: Mail, type: 'email' },
     { label: 'Phone Number', value: customer.phone, icon: Phone, type: 'phone' },
-    { label: 'Company / Organization', value: customer.company, icon: Building2, type: 'text' },
+    { label: 'Company / Brokerage', value: customer.company, icon: Building2, type: 'text' },
     { label: 'Profile Registered', value: formatDate(customer.created_at), icon: Calendar, type: 'text' },
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 select-none animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 select-none">
       {/* Left Columns: Metadata list */}
       <div className="lg:col-span-2 bg-slate-900/20 border border-slate-800/60 rounded-xl p-6 space-y-5">
         <h3 className="text-sm font-bold text-white uppercase tracking-wider font-sans mb-2">Customer Profile</h3>
@@ -87,6 +99,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ customer }) => {
           Use the edit drawer on the Customers directory page to modify fields or tag classifications.
         </div>
       </div>
+    </div>
+
+    {/* AI Call Insights with manual correction */}
+    <section className="bg-slate-900/20 border border-slate-800/60 rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-brand-400" />
+        <h3 className="text-sm font-bold text-white uppercase tracking-wider">AI Call Insights</h3>
+        <span className="text-[10px] text-slate-500 font-normal normal-case">Correct the summary or deal stage if the local model got it wrong.</span>
+      </div>
+      <CallInsights summaries={summaries} loading={summariesLoading} onUpdate={onUpdateSummary!} />
+    </section>
     </div>
   )
 }

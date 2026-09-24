@@ -33,6 +33,7 @@ export interface MeetingRecording {
   status: string;
   customer_id?: string;
   customer?: { name: string };
+  last_error?: string | null;
 }
 
 export interface Call {
@@ -40,9 +41,11 @@ export interface Call {
   customer_id: string;
   owner_id: string;
   audio_url?: string;
+  recording_id?: string | null;
   duration_seconds?: number;
   started_at: string;
   raw_transcript: any;
+  clean_transcript?: any;
   status: CallStatus;
   created_at: string;
   customer?: { name: string };
@@ -103,6 +106,7 @@ export interface AIPipelineResponse {
   status: 'SUCCESS' | 'AUDIO_ERROR' | 'TRANSCRIPTION_ERROR' | 'LLM_ERROR' | 'INVALID_LLM_OUTPUT' | 'PIPELINE_ERROR';
   audio_path: string;
   transcript: string;
+  clean_transcript?: string;
   analysis: AIAnalysisResult;
   metadata: {
     processing_time_seconds: number;
@@ -120,30 +124,7 @@ export interface AIHealthResponse {
   whisper_model?: string;
   llm_provider?: string;
   llm_model?: string;
-  krill_search_enabled?: boolean;
-  krill_api_key_configured?: boolean;
   error?: string;
-}
-
-export interface WebSearchResultItem {
-  title: string;
-  url: string;
-  snippet: string;
-}
-
-export interface AIQueryResult {
-  query: string;
-  answer: string;
-  used_web_search: boolean;
-  search_query?: string | null;
-  search_results?: WebSearchResultItem[];
-  search_error?: string | null;
-  sources: string[];
-  metadata?: {
-    llm_provider: string;
-    llm_model: string;
-    krill_enabled: boolean;
-  };
 }
 
 declare global {
@@ -152,7 +133,12 @@ declare global {
       checkHealth: () => Promise<AIHealthResponse>;
       processCall: (audioPath: string) => Promise<AIPipelineResponse>;
       processSampleCall: () => Promise<AIPipelineResponse>;
-      query: (prompt: string, context?: string, enableWebSearch?: boolean) => Promise<AIQueryResult>;
+    };
+    electronAPI?: {
+      platform: string;
+      downloadToTemp: (url: string, filename: string) => Promise<string>;
+      exportPdf: (html: string, filename: string) => Promise<{ success: boolean; filePath?: string; canceled?: boolean }>;
+      notify: (title: string, body: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

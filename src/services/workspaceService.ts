@@ -1,5 +1,5 @@
 import { supabase } from '../supabase/client'
-import { Call, Task, Deal, DealStage } from '../types'
+import { Call, Task, Deal, DealStage, CallSummary } from '../types'
 
 /**
  * Handle database errors safely by translating them into user-friendly messages.
@@ -94,6 +94,97 @@ export async function getCustomerDeals(customerId: string): Promise<Deal[]> {
     return data || [];
   } catch (err: any) {
     throw err instanceof Error ? err : new Error('An unexpected error occurred while loading deals.');
+  }
+}
+
+/**
+ * Retrieve all deals across all customers for the authenticated user.
+ */
+export async function getAllDeals(): Promise<Deal[]> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error('You must be signed in to view deals.');
+    }
+
+    const { data, error } = await supabase
+      .from('deals')
+      .select('*, customer:customers(name)')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw handleWorkspaceError(error, 'Unable to load deals.');
+    }
+
+    return data || [];
+  } catch (err: any) {
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while loading deals.');
+  }
+}
+
+/**
+ * Retrieve call summaries for all calls belonging to a customer.
+ */
+export async function getCustomerCallSummaries(
+  customerId: string
+): Promise<(CallSummary & { call?: { started_at?: string; customer_id?: string } })[]> {
+  try {
+    const { data: customerCalls, error: callsError } = await supabase
+      .from('calls')
+      .select('id, started_at, customer_id')
+      .eq('customer_id', customerId);
+
+    if (callsError) {
+      throw handleWorkspaceError(callsError, 'Unable to load call summaries.');
+    }
+
+    const callIds = (customerCalls || []).map((c: any) => c.id);
+    if (callIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('call_summaries')
+      .select('*')
+      .in('call_id', callIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw handleWorkspaceError(error, 'Unable to load call summaries.');
+    }
+
+    const callMap = new Map((customerCalls || []).map((c: any) => [c.id, c]));
+    return (data || []).map((summary: any) => ({ ...summary, call: callMap.get(summary.call_id) }));
+  } catch (err: any) {
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while loading call summaries.');
+  }
+}
+
+/**
+ * Persist manual corrections to an AI-generated call summary.
+ */
+export async function updateCallSummary(
+  id: string,
+  updates: { summary_text?: string; deal_stage?: DealStage }
+): Promise<CallSummary> {
+  try {
+    const updateData: any = {};
+    if (updates.summary_text !== undefined) updateData.summary_text = updates.summary_text.trim();
+    if (updates.deal_stage !== undefined) updateData.deal_stage = updates.deal_stage;
+
+    const { data, error } = await supabase
+      .from('call_summaries')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw handleWorkspaceError(error, 'Call summary could not be updated.');
+    }
+
+    return data;
+  } catch (err: any) {
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while updating call summary.');
   }
 }
 

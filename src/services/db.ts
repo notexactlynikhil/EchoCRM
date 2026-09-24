@@ -15,6 +15,25 @@ export interface DashboardData {
   activeDeals: Deal[];
 }
 
+export interface StageBreakdown {
+  stage: string;
+  count: number;
+  value: number;
+}
+
+export interface CallsPerDay {
+  date: string;
+  count: number;
+}
+
+export interface TranscriptSearchResult {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  started_at: string;
+  snippet: string;
+}
+
 /**
  * Handle database errors safely by translating them into user-friendly messages.
  */
@@ -116,6 +135,14 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   }
 }
 
+/**
+ * Resolve the public playback URL for a meeting recording in Supabase Storage.
+ */
+export function getRecordingPublicUrl(storagePath: string): string {
+  const { data } = supabase.storage.from('meeting-recordings').getPublicUrl(storagePath);
+  return data.publicUrl;
+}
+
 export async function fetchMeetingRecordings() {
   const { data, error } = await supabase
     .from('meeting_recordings')
@@ -136,4 +163,68 @@ export async function assignRecordingToCustomer(recordingId: string, customerId:
 
   if (error) throw handleDbError(error, 'Failed to assign recording');
   return data;
+}
+
+/**
+ * Keyword search across the user's call transcripts (raw, user-facing version).
+ */
+export async function searchCallTranscripts(term: string): Promise<TranscriptSearchResult[]> {
+  const { data, error } = await supabase.rpc('search_call_transcripts', { search_term: term.trim() });
+  if (error) throw handleDbError(error, 'Transcript search failed.');
+  return (data || []) as TranscriptSearchResult[];
+}
+
+/**
+ * Aggregate deal count and total value per pipeline stage.
+ */
+export async function fetchDealStageBreakdown(): Promise<StageBreakdown[]> {
+  const { data, error } = await supabase
+    .from('deals')
+    .select('stage, value');
+
+  if (error) throw handleDbError(error, 'Unable to load deal breakdown.');
+
+  const stages = ['prospecting', 'negotiation', 'closing', 'won', 'lost'];
+  const map = new Map<string, StageBreakdown>();
+  stages.forEach((stage) => map.set(stage, { stage, count: 0, value: 0 }));
+
+  (data || []).forEach((deal: any) => {
+    const entry = map.get(deal.stage);
+    if (entry) {
+      entry.count += 1;
+      entry.value += Number(deal.value) || 0;
+    }
+  });
+
+  return stages.map((stage) => map.get(stage)!);
+}
+
+/**
+ * Count calls logged per day over the last `days` days (oldest first).
+ */
+export async function fetchCallsPerDay(days = 14): Promise<CallsPerDay[]> {
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - (days - 1));
+
+  const { data, error } = await supabase
+    .from('calls')
+    .select('started_at')
+    .gte('started_at', since.toISOString());
+
+  if (error) throw handleDbError(error, 'Unable to load call activity.');
+
+  const counts = new Map<string, number>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(since.getDate() + i);
+    counts.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  (data || []).forEach((call: any) => {
+    const key = new Date(call.started_at).toISOString().slice(0, 10);
+    if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return Array.from(counts.entries()).map(([date, count]) => ({ date, count }));
 }

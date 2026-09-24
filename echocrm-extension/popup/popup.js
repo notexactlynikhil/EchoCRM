@@ -44,12 +44,61 @@ const statRemoteVal = document.getElementById('statRemoteVal');
 const statOverlapVal = document.getElementById('statOverlapVal');
 const timelineList = document.getElementById('timelineList');
 
+const cloudStatusBadge = document.getElementById('cloudStatusBadge');
+const cloudSignedOut = document.getElementById('cloudSignedOut');
+const cloudSignedIn = document.getElementById('cloudSignedIn');
+const cloudEmail = document.getElementById('cloudEmail');
+const cloudPassword = document.getElementById('cloudPassword');
+const cloudSignInBtn = document.getElementById('cloudSignInBtn');
+const cloudSignOutBtn = document.getElementById('cloudSignOutBtn');
+const cloudUserEmail = document.getElementById('cloudUserEmail');
+const cloudAuthError = document.getElementById('cloudAuthError');
+
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await checkStatus();
+  await initCloud();
   await detectActiveTabMeeting();
   await loadRecordingsList();
 });
+
+// ---------------------------------------------------------------------------
+// Cloud sync authentication
+// ---------------------------------------------------------------------------
+async function initCloud() {
+  if (!window.supabaseClient) return;
+  try {
+    const session = await window.supabaseClient.getValidSession();
+    renderCloudState(session);
+  } catch (e) {
+    renderCloudState(null);
+  }
+}
+
+function renderCloudState(session) {
+  const signedIn = Boolean(session && session.user);
+  if (signedIn) {
+    cloudSignedOut.classList.add('hidden');
+    cloudSignedIn.classList.remove('hidden');
+    cloudUserEmail.textContent = session.user.email || 'your account';
+    cloudStatusBadge.textContent = 'SYNCING';
+    cloudStatusBadge.className = 'platform-badge meet';
+  } else {
+    cloudSignedOut.classList.remove('hidden');
+    cloudSignedIn.classList.add('hidden');
+    cloudStatusBadge.textContent = 'SIGN IN';
+    cloudStatusBadge.className = 'platform-badge unverified';
+  }
+}
+
+function showCloudError(message) {
+  cloudAuthError.textContent = message;
+  cloudAuthError.classList.remove('hidden');
+}
+
+function hideCloudError() {
+  cloudAuthError.classList.add('hidden');
+}
 
 function setupEventListeners() {
   copyNoticeBtn.addEventListener('click', () => {
@@ -70,6 +119,33 @@ function setupEventListeners() {
 
   startRecordBtn.addEventListener('click', handleStartRecording);
   stopRecordBtn.addEventListener('click', handleStopRecording);
+
+  cloudSignInBtn.addEventListener('click', async () => {
+    hideCloudError();
+    const email = (cloudEmail.value || '').trim();
+    const password = cloudPassword.value || '';
+    if (!email || !password) {
+      showCloudError('Enter your EchoCRM email and password.');
+      return;
+    }
+    cloudSignInBtn.disabled = true;
+    cloudSignInBtn.textContent = 'Signing in...';
+    try {
+      const session = await window.supabaseClient.signIn(email, password);
+      cloudPassword.value = '';
+      renderCloudState(session);
+    } catch (err) {
+      showCloudError(err.message || 'Sign-in failed.');
+    } finally {
+      cloudSignInBtn.disabled = false;
+      cloudSignInBtn.textContent = 'Sign in to sync';
+    }
+  });
+
+  cloudSignOutBtn.addEventListener('click', async () => {
+    await window.supabaseClient.signOut();
+    renderCloudState(null);
+  });
 
   closeModalBtn.addEventListener('click', () => {
     playerModal.classList.add('hidden');

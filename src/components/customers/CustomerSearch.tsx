@@ -24,7 +24,7 @@ export const CustomerSearch: React.FC<CustomerSearchProps> = ({
         </span>
         <input
           type="text"
-          placeholder="Search by name, email, or company..."
+          placeholder="Search by name, email, company, or phone number..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full pl-9 pr-4 py-2 bg-slate-900/60 border border-slate-800 focus:border-brand-500/80 focus:ring-1 focus:ring-brand-500/10 focus:outline-none rounded-xl text-sm text-slate-100 transition duration-150"
