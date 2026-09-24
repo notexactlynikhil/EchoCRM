@@ -23,32 +23,64 @@ class SupabaseExtensionClient {
   // ---------------------------------------------------------------------------
   // Session storage (chrome.storage.local, shared across extension contexts)
   // ---------------------------------------------------------------------------
+  /**
+   * Read the stored session. The popup and the offscreen recorder are different
+   * execution contexts, so we mirror the session into BOTH chrome.storage.local
+   * (persistent, survives service-worker/context teardown) and localStorage
+   * (shared instantly between extension pages). This makes the session
+   * available regardless of which storage backend a given context can access.
+   */
   async getStoredSession() {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get(SESSION_STORAGE_KEY);
-      return data[SESSION_STORAGE_KEY] || null;
-    }
+    // Prefer localStorage first: it is synchronously shared between the popup
+    // and the offscreen document and never requires an async chrome API.
     try {
-      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      }
     } catch (e) {
-      return null;
+      /* localStorage unavailable */
     }
+
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const data = await chrome.storage.local.get(SESSION_STORAGE_KEY);
+        const session = data[SESSION_STORAGE_KEY] || null;
+        if (session) {
+          // Hydrate localStorage so other contexts see it synchronously.
+          try { localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session)); } catch (e) {}
+        }
+        return session;
+      }
+    } catch (e) {
+      /* chrome.storage unavailable in this context */
+    }
+
+    return null;
   }
 
   async setStoredSession(session) {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    // Always keep both backends in sync.
+    try {
       if (session) {
-        await chrome.storage.local.set({ [SESSION_STORAGE_KEY]: session });
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
       } else {
-        await chrome.storage.local.remove(SESSION_STORAGE_KEY);
+        localStorage.removeItem(SESSION_STORAGE_KEY);
       }
-      return;
+    } catch (e) {
+      /* localStorage unavailable */
     }
-    if (session) {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    } else {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
+
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        if (session) {
+          await chrome.storage.local.set({ [SESSION_STORAGE_KEY]: session });
+        } else {
+          await chrome.storage.local.remove(SESSION_STORAGE_KEY);
+        }
+      }
+    } catch (e) {
+      /* chrome.storage unavailable in this context */
     }
   }
 

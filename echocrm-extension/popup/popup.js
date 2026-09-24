@@ -7,6 +7,7 @@
 let activeTab = null;
 let detectedPlatform = null;
 let timerInterval = null;
+let cloudIsSignedIn = false;
 
 // DOM Elements
 const idleView = document.getElementById('idleView');
@@ -77,6 +78,7 @@ async function initCloud() {
 
 function renderCloudState(session) {
   const signedIn = Boolean(session && session.user);
+  cloudIsSignedIn = signedIn;
   if (signedIn) {
     cloudSignedOut.classList.add('hidden');
     cloudSignedIn.classList.remove('hidden');
@@ -89,6 +91,7 @@ function renderCloudState(session) {
     cloudStatusBadge.textContent = 'SIGN IN';
     cloudStatusBadge.className = 'platform-badge unverified';
   }
+  loadRecordingsList();
 }
 
 function showCloudError(message) {
@@ -134,6 +137,8 @@ function setupEventListeners() {
       const session = await window.supabaseClient.signIn(email, password);
       cloudPassword.value = '';
       renderCloudState(session);
+      // Automatically push any recordings still waiting to sync.
+      syncPendingRecordings();
     } catch (err) {
       showCloudError(err.message || 'Sign-in failed.');
     } finally {
@@ -160,7 +165,7 @@ function setupEventListeners() {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'VAD_ENERGY_UPDATE' && message.energy) {
       updateVadMeters(message.energy);
-    } else if (message.type === 'RECORDING_COMPLETED') {
+    } else if (message.type === 'RECORDING_COMPLETED' || message.type === 'RECORDING_UPLOADED' || message.type === 'RECORDING_UPLOAD_FAILED') {
       loadRecordingsList();
     }
   });
@@ -404,6 +409,15 @@ async function handleStopRecording() {
   }
 }
 
+const SYNC_STATUS = {
+  uploaded: { label: 'Synced', cls: 'uploaded' },
+  uploading: { label: 'Uploading', cls: 'uploading' },
+  auth_required: { label: 'Sign in', cls: 'pending' },
+  upload_failed: { label: 'Failed', cls: 'failed' },
+  local_saved: { label: 'Local', cls: 'local' },
+  recording: { label: 'Local', cls: 'local' }
+};
+
 async function loadRecordingsList() {
   if (!window.recordingStore) return;
 
@@ -431,6 +445,9 @@ async function loadRecordingsList() {
       const sizeStr = item.sizeBytes ? `${(item.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0 MB';
       const durationStr = `${item.durationSeconds || 0}s`;
 
+      const status = SYNC_STATUS[item.status] || SYNC_STATUS.local_saved;
+      const canSync = Boolean(item.hasBlob) && item.status !== 'uploaded' && item.status !== 'uploading';
+
       row.innerHTML = `
         <div class="item-info">
           <div class="item-id" title="${item.id}.webm">${item.id.slice(0, 8)}...webm</div>
@@ -440,9 +457,17 @@ async function loadRecordingsList() {
             <span>${durationStr}</span>
             <span>&bull;</span>
             <span>${sizeStr}</span>
+            <span class="sync-tag ${status.cls}">${status.label}</span>
           </div>
         </div>
         <div class="item-actions">
+          ${canSync ? `
+          <button class="icon-btn sync-btn" data-id="${item.id}" title="Sync to EchoCRM">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01.88-7.9 5 5 0 019.9-1.2A4.5 4.5 0 1117 16H7z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 12v6m0-6l-2.5 2.5M12 12l2.5 2.5"/>
+            </svg>
+          </button>` : ''}
           <button class="icon-btn play-btn" data-id="${item.id}" title="Play & Speaker Attribution">
             <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
@@ -461,6 +486,8 @@ async function loadRecordingsList() {
         </div>
       `;
 
+      const syncBtn = row.querySelector('.sync-btn');
+      if (syncBtn) syncBtn.addEventListener('click', () => syncRecording(item.id));
       row.querySelector('.play-btn').addEventListener('click', () => playRecording(item.id));
       row.querySelector('.download-btn').addEventListener('click', () => downloadRecording(item.id));
       row.querySelector('.delete-btn').addEventListener('click', () => deleteRecording(item.id));
@@ -470,6 +497,63 @@ async function loadRecordingsList() {
   } catch (err) {
     console.error('Error loading recordings list:', err);
   }
+}
+
+/**
+ * Manually upload a locally stored recording to Supabase.
+ */
+async function syncRecording(id) {
+  if (!window.supabaseClient || !window.recordingStore) return;
+  if (!cloudIsSignedIn) {
+    showAlert('Sign in to EchoCRM above before syncing recordings.');
+    return;
+  }
+
+  try {
+    const record = await window.recordingStore.getRecording(id);
+    if (!record || !record.blob) {
+      showAlert('Recording file not found.');
+      return;
+    }
+
+    await window.recordingStore.updateRecording(id, { status: 'uploading', lastError: null });
+    await loadRecordingsList();
+
+    await window.supabaseClient.uploadRecording(record, record.blob);
+    await window.recordingStore.updateRecording(id, { status: 'uploaded', lastError: null });
+    syncToast('Recording synced to EchoCRM.');
+  } catch (err) {
+    await window.recordingStore.updateRecording(id, {
+      status: 'upload_failed',
+      lastError: err.message || String(err)
+    });
+    showAlert('Sync failed: ' + (err.message || String(err)));
+  } finally {
+    await loadRecordingsList();
+  }
+}
+
+/**
+ * Upload every local recording that is not yet synced. Called after sign-in.
+ */
+async function syncPendingRecordings() {
+  if (!cloudIsSignedIn || !window.recordingStore) return;
+  try {
+    const items = await window.recordingStore.listRecordings();
+    const pending = items.filter((item) => item.hasBlob && item.status !== 'uploaded');
+    for (const item of pending) {
+      await syncRecording(item.id);
+    }
+  } catch (err) {
+    console.error('Error syncing pending recordings:', err);
+  }
+}
+
+function syncToast(message) {
+  if (!copyToast) return;
+  copyToast.textContent = message;
+  copyToast.classList.remove('hidden');
+  setTimeout(() => copyToast.classList.add('hidden'), 2200);
 }
 
 async function playRecording(id) {
