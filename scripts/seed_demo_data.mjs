@@ -1,7 +1,7 @@
 /**
- * EchoCRM Demo Data Seeder
+ * Wavelength Demo Data Seeder
  *
- * Seeds a fresh, realistic demo dataset for EchoCRM.
+ * Seeds a fresh, realistic demo dataset for Wavelength.
  *
  * HOW TO RUN:
  *   node scripts/seed_demo_data.mjs --email your@email.com --password yourpassword
@@ -178,7 +178,7 @@ const DEMO_SENTIMENTS = [
 // ---------------------------------------------------------------------------
 async function main() {
   console.log('\n=================================================');
-  console.log('  EchoCRM Demo Data Seeder');
+  console.log('  Wavelength Demo Data Seeder');
   console.log('=================================================');
 
   const env = readEnv();
@@ -355,7 +355,7 @@ async function main() {
   console.log(`  Deals:              0 (feature removed)`);
   console.log(`  Existing data:      unchanged`);
   console.log('=================================================');
-  console.log('  Open EchoCRM to see the demo data.\n');
+  console.log('  Open Wavelength to see the demo data.\n');
 }
 
 main().catch((err) => {
