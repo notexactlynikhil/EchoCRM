@@ -1,4 +1,4 @@
-# EchoCRM
+# Wavelength
 
 A local-first CRM for real-estate sales teams: capture meetings, transcribe and
 summarize them with an offline AI pipeline, and manage customers, tasks and
