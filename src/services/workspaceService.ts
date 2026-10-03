@@ -1,5 +1,5 @@
 import { supabase } from '../supabase/client'
-import { Call, Task, Deal, DealStage } from '../types'
+import { Call, Task, CallSummary } from '../types'
 
 /**
  * Handle database errors safely by translating them into user-friendly messages.
@@ -56,6 +56,24 @@ export async function getCustomerRecordings(customerId: string) {
 }
 
 /**
+ * Helper to sanitize dates on retrieved tasks.
+ * If a task has an invalid date or a date before 2025 (e.g. LLM training-set hallucination like 2023),
+ * it is cleaned in-memory and repaired in Supabase.
+ */
+function sanitizeTaskDates<T extends Task>(taskList: T[]): T[] {
+  return taskList.map(task => {
+    if (!task.due_date) return task;
+    const dueDate = new Date(task.due_date);
+    if (isNaN(dueDate.getTime()) || dueDate.getFullYear() < 2025) {
+      // Clean up in background so DB row is fixed permanently
+      supabase.from('tasks').update({ due_date: null }).eq('id', task.id).then();
+      return { ...task, due_date: undefined };
+    }
+    return task;
+  });
+}
+
+/**
  * Retrieve tasks list associated with a specific customer.
  */
 export async function getCustomerTasks(customerId: string): Promise<Task[]> {
@@ -70,30 +88,75 @@ export async function getCustomerTasks(customerId: string): Promise<Task[]> {
       throw handleWorkspaceError(error, 'Unable to load tasks list.');
     }
 
-    return data || [];
+    return sanitizeTaskDates(data || []);
   } catch (err: any) {
     throw err instanceof Error ? err : new Error('An unexpected error occurred while loading tasks.');
   }
 }
 
+
+
 /**
- * Retrieve deals associated with a specific customer.
+ * Retrieve call summaries for all calls belonging to a customer.
  */
-export async function getCustomerDeals(customerId: string): Promise<Deal[]> {
+export async function getCustomerCallSummaries(
+  customerId: string
+): Promise<(CallSummary & { call?: { started_at?: string; customer_id?: string } })[]> {
   try {
+    const { data: customerCalls, error: callsError } = await supabase
+      .from('calls')
+      .select('id, started_at, customer_id')
+      .eq('customer_id', customerId);
+
+    if (callsError) {
+      throw handleWorkspaceError(callsError, 'Unable to load call summaries.');
+    }
+
+    const callIds = (customerCalls || []).map((c: any) => c.id);
+    if (callIds.length === 0) return [];
+
     const { data, error } = await supabase
-      .from('deals')
+      .from('call_summaries')
       .select('*')
-      .eq('customer_id', customerId)
+      .in('call_id', callIds)
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw handleWorkspaceError(error, 'Unable to load customer deals.');
+      throw handleWorkspaceError(error, 'Unable to load call summaries.');
     }
 
-    return data || [];
+    const callMap = new Map((customerCalls || []).map((c: any) => [c.id, c]));
+    return (data || []).map((summary: any) => ({ ...summary, call: callMap.get(summary.call_id) }));
   } catch (err: any) {
-    throw err instanceof Error ? err : new Error('An unexpected error occurred while loading deals.');
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while loading call summaries.');
+  }
+}
+
+/**
+ * Persist manual corrections to an AI-generated call summary.
+ */
+export async function updateCallSummary(
+  id: string,
+  updates: { summary_text?: string }
+): Promise<CallSummary> {
+  try {
+    const updateData: any = {};
+    if (updates.summary_text !== undefined) updateData.summary_text = updates.summary_text.trim();
+
+    const { data, error } = await supabase
+      .from('call_summaries')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw handleWorkspaceError(error, 'Call summary could not be updated.');
+    }
+
+    return data;
+  } catch (err: any) {
+    throw err instanceof Error ? err : new Error('An unexpected error occurred while updating call summary.');
   }
 }
 
@@ -181,28 +244,6 @@ export async function deleteTask(id: string): Promise<void> {
 }
 
 /**
- * Update a deal's stage.
- */
-export async function updateDealStage(id: string, stage: DealStage): Promise<Deal> {
-  try {
-    const { data, error } = await supabase
-      .from('deals')
-      .update({ stage })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      throw handleWorkspaceError(error, 'Deal stage could not be updated.');
-    }
-
-    return data;
-  } catch (err: any) {
-    throw err instanceof Error ? err : new Error('An unexpected error occurred while updating deal.');
-  }
-}
-
-/**
  * Fetch all tasks across all customers for the authenticated user.
  */
 export async function getGlobalTasks(): Promise<(Task & { customer?: { name: string } })[]> {
@@ -222,7 +263,7 @@ export async function getGlobalTasks(): Promise<(Task & { customer?: { name: str
       throw handleWorkspaceError(error, 'Unable to load global tasks.');
     }
 
-    return data || [];
+    return sanitizeTaskDates(data || []);
   } catch (err: any) {
     throw err instanceof Error ? err : new Error('An unexpected error occurred while loading global tasks.');
   }

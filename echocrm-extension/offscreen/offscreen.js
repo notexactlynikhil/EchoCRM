@@ -260,7 +260,9 @@ async function stopRecording() {
           speakerStats: segmentationResult.stats || {},
           mimeType: mimeType,
           chunkCount: recordedChunks.length,
-          sizeBytes: finalBlob.size
+          sizeBytes: finalBlob.size,
+          // Authoritative customer_id if manually supplied, or null
+          customerId: metadata.customerId || null
         };
 
         // Persist complete recording and segmentation locally to IndexedDB
@@ -270,9 +272,49 @@ async function stopRecording() {
 
         // Upload to Supabase asynchronously
         if (window.supabaseClient) {
-          window.supabaseClient.uploadRecording(finalRecord, finalBlob)
-            .then(uploadResult => console.log('Successfully uploaded to Supabase:', uploadResult))
-            .catch(err => console.error('Failed to upload to Supabase:', err));
+          const session = await window.supabaseClient.getValidSession().catch(() => null);
+          if (!session) {
+            if (window.recordingStore) {
+              await window.recordingStore.updateRecording(recordingId, {
+                status: 'auth_required',
+                lastError: 'Sign in to the EchoCRM extension to sync this recording.'
+              });
+            }
+            chrome.runtime.sendMessage({ type: 'RECORDING_UPLOAD_FAILED', recordingId, error: 'Not signed in' }).catch(() => {});
+          } else {
+            // If no customer was manually selected, create temporary customer first
+            if (!finalRecord.customerId) {
+              try {
+                const shortId = recordingId.slice(0, 8);
+                const tempCust = await window.supabaseClient.createCustomer({
+                  name: `Unknown Customer - ${shortId}`,
+                  tags: ['temporary', 'auto-detected']
+                });
+                finalRecord.customerId = tempCust.id;
+              } catch (e) {
+                console.warn('Temporary customer creation before upload deferred:', e);
+              }
+            }
+
+            window.supabaseClient.uploadRecording(finalRecord, finalBlob)
+              .then(async (uploadResult) => {
+                console.log('Successfully uploaded to Supabase:', uploadResult);
+                if (window.recordingStore) {
+                  await window.recordingStore.updateRecording(recordingId, { status: 'uploaded', lastError: null });
+                }
+                chrome.runtime.sendMessage({ type: 'RECORDING_UPLOADED', recordingId }).catch(() => {});
+              })
+              .catch(async (err) => {
+                console.error('Failed to upload to Supabase:', err);
+                if (window.recordingStore) {
+                  await window.recordingStore.updateRecording(recordingId, {
+                    status: 'upload_failed',
+                    lastError: err.message || String(err)
+                  });
+                }
+                chrome.runtime.sendMessage({ type: 'RECORDING_UPLOAD_FAILED', recordingId, error: err.message }).catch(() => {});
+              });
+          }
         }
 
         cleanup();

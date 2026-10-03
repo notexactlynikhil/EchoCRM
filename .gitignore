@@ -1,5 +1,13 @@
 node_modules/
+dist/
 llama-runtime/
 *.gguf
 __pycache__/
 *.pyc
+.env
+.env.local
+.env.*.local
+echocrm-extension/config.local.js
+release/
+dist-electron/
+*.exe

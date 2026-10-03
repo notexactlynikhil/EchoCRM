@@ -1,0 +1,9 @@
+# EchoCRM AI service (ai/) runtime dependencies
+fastapi
+uvicorn[standard]
+faster-whisper
+ollama
+pydantic
+
+# Optional: in-process llama.cpp provider (LLM_PROVIDER=llama_cpp)
+# llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu

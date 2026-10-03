@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Call, Task, Deal, DealStage } from '../types'
+import { Call, Task, CallSummary, TaskStatus } from '../types'
 import { 
   getCustomerCalls, 
   getCustomerTasks, 
-  getCustomerDeals, 
+  getCustomerCallSummaries,
   createTask, 
   updateTask, 
   deleteTask, 
-  updateDealStage,
+  updateCallSummary,
   getCustomerRecordings
 } from '../services/workspaceService'
 import { useRealtimeSync } from '../contexts/RealtimeSyncContext'
@@ -20,7 +20,7 @@ const taskSortFn = (a: Task, b: Task) => {
   return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
 };
 
-export type WorkspaceTab = 'overview' | 'calls' | 'tasks' | 'deals';
+export type WorkspaceTab = 'overview' | 'calls' | 'transcript' | 'tasks';
 
 export function useWorkspace(customerId: string) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview')
@@ -29,7 +29,7 @@ export function useWorkspace(customerId: string) {
   const [calls, setCalls] = useState<Call[]>([])
   const [recordings, setRecordings] = useState<any[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [deals, setDeals] = useState<Deal[]>([])
+  const [summaries, setSummaries] = useState<(CallSummary & { call?: { started_at?: string; customer_id?: string } })[]>([])
   
   // Loading indicators
   const [loading, setLoading] = useState(true)
@@ -42,16 +42,16 @@ export function useWorkspace(customerId: string) {
     setLoading(true)
     setError(null)
     try {
-      const [fetchedCalls, fetchedTasks, fetchedDeals, fetchedRecordings] = await Promise.all([
+      const [fetchedCalls, fetchedTasks, fetchedRecordings, fetchedSummaries] = await Promise.all([
         getCustomerCalls(customerId),
         getCustomerTasks(customerId),
-        getCustomerDeals(customerId),
-        getCustomerRecordings(customerId)
+        getCustomerRecordings(customerId),
+        getCustomerCallSummaries(customerId)
       ]);
       setCalls(fetchedCalls)
       setRecordings(fetchedRecordings)
       setTasks(fetchedTasks)
-      setDeals(fetchedDeals)
+      setSummaries(fetchedSummaries)
     } catch (err: any) {
       setError(err?.message || 'Unable to load workspace data.')
     } finally {
@@ -112,29 +112,11 @@ export function useWorkspace(customerId: string) {
         }
       }
 
-      // 3. Deals Table
-      else if (event.table === 'deals') {
-        const record = event.eventType === 'DELETE' ? event.oldRecord : event.newRecord;
-        if (record.customer_id !== customerId) return;
-
-        if (event.eventType === 'DELETE') {
-          setDeals((prev) => prev.filter((d) => d.id !== event.oldRecord.id));
-        } else if (event.eventType === 'UPDATE') {
-          setDeals((prev) => {
-            const exists = prev.some((d) => d.id === event.newRecord.id);
-            if (exists) {
-              return prev.map((d) => (d.id === event.newRecord.id ? event.newRecord : d))
-                         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-            }
-            return prev;
-          });
-        } else if (event.eventType === 'INSERT') {
-          setDeals((prev) => {
-            const exists = prev.some((d) => d.id === event.newRecord.id);
-            if (exists) return prev;
-            return [event.newRecord, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          });
-        }
+      // 3. Call Summaries Table (refresh scoped list; payload has no customer_id)
+      else if (event.table === 'call_summaries') {
+        getCustomerCallSummaries(customerId)
+          .then((fresh) => setSummaries(fresh))
+          .catch(() => {});
       }
 
       // 4. Meeting Recordings Table
@@ -169,14 +151,14 @@ export function useWorkspace(customerId: string) {
   }, [subscribe, customerId])
 
   // Tasks CRUD operations
-  const addTask = async (description: string, dueDate?: string) => {
+  const addTask = async (description: string, dueDate?: string, status: TaskStatus = 'pending') => {
     try {
       setError(null)
       const newTask = await createTask({
         customer_id: customerId,
         description: description.trim(),
         due_date: dueDate || undefined,
-        status: 'pending'
+        status: status || 'pending'
       });
       setTasks((prev) => [...prev, newTask].sort((a, b) => {
         if (!a.due_date && !b.due_date) return 0;
@@ -190,12 +172,13 @@ export function useWorkspace(customerId: string) {
     }
   }
 
-  const editTask = async (taskId: string, description: string, dueDate?: string) => {
+  const editTask = async (taskId: string, description: string, dueDate?: string, status?: TaskStatus) => {
     try {
       setError(null)
       const updated = await updateTask(taskId, {
         description: description.trim(),
-        due_date: dueDate || undefined
+        due_date: dueDate || undefined,
+        status: status
       });
       setTasks((prev) => 
         prev.map((t) => (t.id === taskId ? updated : t))
@@ -239,20 +222,15 @@ export function useWorkspace(customerId: string) {
     }
   }
 
-  // Deals Stage operations
-  const changeDealStage = async (dealId: string, stage: DealStage) => {
-    const originalDeals = [...deals];
+  // Correct an AI-generated call summary
+  const editSummary = async (summaryId: string, updates: { summary_text?: string }) => {
     try {
       setError(null)
-      
-      // Optimistically update stage tag
-      setDeals((prev) => prev.map((d) => (d.id === dealId ? { ...d, stage } : d)));
-      
-      await updateDealStage(dealId, stage);
+      const updated = await updateCallSummary(summaryId, updates)
+      setSummaries((prev) => prev.map((s) => (s.id === summaryId ? { ...s, ...updated } : s)))
     } catch (err: any) {
-      // Revert on failure
-      setDeals(originalDeals)
-      setError(err?.message || 'Unable to update deal stage.');
+      setError(err?.message || 'Call summary could not be updated.')
+      throw err
     }
   }
 
@@ -262,14 +240,14 @@ export function useWorkspace(customerId: string) {
     calls,
     recordings,
     tasks,
-    deals,
+    summaries,
     loading,
     error,
     addTask,
     editTask,
     toggleTaskComplete,
     removeTask,
-    changeDealStage,
+    editSummary,
     refresh: loadAllData
   }
 }
